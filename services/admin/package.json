@@ -1,0 +1,24 @@
+{
+  "name": "admin",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@adminjs/design-system": "^4.1.1",
+    "@adminjs/express": "^6.1.0",
+    "@adminjs/sequelize": "^4.1.1",
+    "adminjs": "^7.8.17",
+    "express-formidable": "^1.2.0",
+    "express-mysql-session": "^3.0.3",
+    "express-session": "^1.18.0",
+    "modules": "file:../../modules",
+    "tslib": "^2.6.3"
+  }
+}

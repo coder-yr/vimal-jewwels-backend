@@ -1,0 +1,62 @@
+/* Vimal Jewellers Brand Theme */
+
+/* Reduce logo height in side bar*/
+.adminjs_Logo img {
+  max-height: 80px !important;
+  margin: 10px auto !important;
+  object-fit: contain;
+}
+
+/* Primary Color Overrides: Teal #009999 */
+
+/* Buttons */
+button[data-variant="primary"],
+a[data-variant="primary"] {
+  background-color: #009999 !important;
+  border-color: #009999 !important;
+}
+
+button[data-variant="primary"]:hover,
+a[data-variant="primary"]:hover {
+  background-color: #007f7f !important;
+}
+
+/* Links */
+a {
+  color: #009999;
+}
+
+a:hover {
+  color: #007f7f;
+}
+
+/* Sidebar Navigation */
+/* Note: AdminJS classes are hashed or specific, targeting general structure where possible */
+[data-css="sidebar-resource-section"] a.active,
+aside a[href*="/resources/"][class*="active"] {
+  color: #009999 !important;
+  border-left-color: #009999 !important;
+  background: rgba(0, 153, 153, 0.05) !important;
+}
+
+aside a:hover {
+  color: #009999 !important;
+}
+
+/* Icons in sidebar */
+aside svg {
+  color: inherit;
+}
+
+/* Inputs focus state */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #009999 !important;
+  box-shadow: 0 0 0 1px #009999 !important;
+}
+
+/* Dashboard Cards Border on Hover */
+.adminjs_DashboardCard:hover {
+  border-color: #009999 !important;
+}

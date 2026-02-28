@@ -1,0 +1,35 @@
+﻿node : file:///E:/vimal-jewls/update
+d%20backend%20for%20vipin/vimaljewel
+lersbackend-vimal-jewls-final-5/serv
+ices/admin/index.js:11
+At line:1 char:1
++ node index.js 2> admin_error.txt
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSp 
+   ecified: (file:///E:/vima...min  
+  /index.js:11:String) [], Remote   
+ Exception
+    + FullyQualifiedErrorId : Nativ 
+   eCommandError
+ 
+import bodyParser from 
+"body-parser";
+^^^^^^^^^^^^^^^^^
+
+SyntaxError: Identifier 
+'bodyParser' has already been 
+declared
+    at compileSourceTextModule (node
+:internal/modules/esm/utils:351:16)
+    at ModuleLoader.moduleStrategy (
+node:internal/modules/esm/translator
+s:107:18)
+    at #translate (node:internal/mod
+ules/esm/loader:546:12)
+    at 
+ModuleLoader.loadAndTranslate (node:
+internal/modules/esm/loader:593:27)
+    at async #link (node:internal/mo
+dules/esm/module_job:180:19)
+
+Node.js v24.4.1
