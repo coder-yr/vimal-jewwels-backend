@@ -54,7 +54,7 @@ export default (sequelize) => {
     },
     {
       tableName: "users",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

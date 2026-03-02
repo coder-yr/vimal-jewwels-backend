@@ -41,7 +41,7 @@ export default (sequelize) => {
     },
     {
       tableName: "home_data",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

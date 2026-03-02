@@ -32,7 +32,7 @@ export default (sequelize) => {
         },
         {
             tableName: "inquiries",
-            paranoid: true,
+            paranoid: false,
             omitNull: true,
             freezeTableName: true,
         }

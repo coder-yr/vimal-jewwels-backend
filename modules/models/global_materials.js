@@ -27,7 +27,7 @@ export default (sequelize) => {
         },
         {
             tableName: "global_materials",
-            paranoid: true,
+            paranoid: false,
             omitNull: true,
             freezeTableName: true,
         }

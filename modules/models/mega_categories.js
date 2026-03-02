@@ -27,7 +27,7 @@ export default (sequelize) => {
     },
     {
       tableName: "mega_categories",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

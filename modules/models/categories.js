@@ -37,7 +37,7 @@ export default (sequelize) => {
     },
     {
       tableName: "categories",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
       indexes: [

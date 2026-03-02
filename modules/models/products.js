@@ -147,7 +147,7 @@ export default (sequelize) => {
     },
     {
       tableName: "products",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
       indexes: [

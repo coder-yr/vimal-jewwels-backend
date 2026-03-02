@@ -24,7 +24,7 @@ export default (sequelize) => {
     },
     {
       tableName: "sub_banners",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

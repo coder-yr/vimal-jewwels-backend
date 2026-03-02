@@ -12,7 +12,7 @@ export default (sequelize) => {
     },
     {
       tableName: "running_lists",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

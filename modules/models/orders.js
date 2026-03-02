@@ -40,7 +40,7 @@ export default (sequelize) => {
     },
     {
       tableName: "orders",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
       indexes: [

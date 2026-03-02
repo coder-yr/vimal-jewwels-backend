@@ -24,7 +24,7 @@ export default (sequelize) => {
         },
         {
             tableName: "section_images",
-            paranoid: true,
+            paranoid: false,
             omitNull: true,
             freezeTableName: true,
         }

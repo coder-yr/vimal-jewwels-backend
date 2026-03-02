@@ -36,7 +36,7 @@ export default (sequelize) => {
     },
     {
       tableName: "shopfor",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

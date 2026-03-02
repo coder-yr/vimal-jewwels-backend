@@ -29,7 +29,7 @@ export default (sequelize) => {
     },
     {
       tableName: "collections",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

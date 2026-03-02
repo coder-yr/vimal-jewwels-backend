@@ -20,7 +20,7 @@ export default (sequelize) => {
     },
     {
       tableName: "banners",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
     }

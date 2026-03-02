@@ -20,7 +20,7 @@ export default (sequelize) => {
     },
     {
       tableName: "wishlist",
-      paranoid: true,
+      paranoid: false,
       omitNull: true,
       freezeTableName: true,
       indexes: [

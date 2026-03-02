@@ -28,7 +28,7 @@ export default (sequelize) => {
         },
         {
             tableName: "home_gifts",
-            paranoid: true,
+            paranoid: false,
             omitNull: true,
             freezeTableName: true,
         }

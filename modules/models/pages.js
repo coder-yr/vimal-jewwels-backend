@@ -25,7 +25,7 @@ export default (sequelize) => {
         },
         {
             tableName: "pages",
-            paranoid: true,
+            paranoid: false,
             omitNull: true,
             freezeTableName: true,
         }
