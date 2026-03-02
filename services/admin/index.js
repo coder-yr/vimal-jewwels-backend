@@ -341,7 +341,8 @@ const admin = new AdminJS({
               id: { type: "string" },
               name: { type: "string" },
               badge: { type: "string" },
-              grossWeight: { type: "string", label: "Gross Weight (g)" },
+              metalRateId: { type: "string", label: "Metal Rate ID" },
+              metalWeight: { type: "string", label: "Metal Weight (g)" },
             },
           },
           availableDiamonds: {
@@ -454,6 +455,7 @@ const admin = new AdminJS({
                 return items;
               };
 
+              /* 
               const pbItems = extractUniqueArray("priceBreakup", ["amount"]);
               if (pbItems.length > 0) {
                 const totalBreakup = pbItems.reduce(
@@ -471,6 +473,7 @@ const admin = new AdminJS({
                   });
                 }
               }
+              */
 
               return request;
             },
@@ -571,6 +574,8 @@ const admin = new AdminJS({
                     "id",
                     "name",
                     "badge",
+                    "metalRateId",
+                    "metalWeight",
                   ]);
                   const diamondItems = extractArray("availableDiamonds", [
                     "id",
@@ -738,6 +743,7 @@ const admin = new AdminJS({
                   return items;
                 };
 
+                /*
                 const pbItems = extractUniqueArray("priceBreakup", ["amount"]);
                 if (pbItems.length > 0) {
                   const totalBreakup = pbItems.reduce(
@@ -757,6 +763,7 @@ const admin = new AdminJS({
                     });
                   }
                 }
+                */
               }
               return request;
             },
@@ -955,6 +962,8 @@ const admin = new AdminJS({
                     "id",
                     "name",
                     "badge",
+                    "metalRateId",
+                    "metalWeight",
                   ]);
                   const diamondItems = extractArray("availableDiamonds", [
                     "id",
@@ -969,6 +978,7 @@ const admin = new AdminJS({
 
 
                   // --- VALIDATION: Price Breakup Total must match Product Price ---
+                  /*
                   if (priceBreakupItems.length > 0) {
                     const totalBreakup = priceBreakupItems.reduce(
                       (sum, item) => sum + (parseFloat(item.amount) || 0),
@@ -985,6 +995,7 @@ const admin = new AdminJS({
                       );
                     }
                   }
+                  */
 
                   const pToUpdate = {};
                   if (summaryItems.length > 0)

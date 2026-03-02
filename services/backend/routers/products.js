@@ -176,9 +176,21 @@ router.get("/slug/:slug", async (req, res) => {
             .filter(m => m.category === 'Diamond')
             .map(m => ({ id: String(m.name).toLowerCase().replace(/\s+/g, '-'), name: m.name }));
         }
+      } // closes if (productData.globalMaterials...)
+
+      // Enrich availableMetals with metal rates
+      if (productData.availableMetals && Array.isArray(productData.availableMetals) && productData.metalRates) {
+        productData.availableMetals = productData.availableMetals.map(metal => {
+          const matchingRate = productData.metalRates.find(r => String(r.id) === String(metal.metalRateId));
+          return {
+            ...metal,
+            rate: matchingRate ? matchingRate.rate : 0
+          };
+        });
       }
+
     } catch (err) {
-      console.error("Error processing global materials:", err);
+      console.error("Error processing global materials/metals:", err);
       // Don't reset here, allow existing data to persist
     }
 

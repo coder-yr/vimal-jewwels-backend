@@ -1,14 +1,37 @@
 import { Box, Button, Input, Label, Table, TableBody, TableCell, TableHead, TableRow } from "@adminjs/design-system";
 import { useEffect, useRef, useState } from "react";
+import { ApiClient } from "adminjs";
 
 const VariantList = (props) => {
     const { record, property } = props;
     const [entries, setEntries] = useState([]);
+    const [metalRates, setMetalRates] = useState([]);
+
+    const isMetal = Boolean((property.name && property.name.toLowerCase().includes('metal')) || (property.path && property.path.toLowerCase().includes('metal')));
 
     // Refs for new entry inputs
     const idRef = useRef(null);
     const nameRef = useRef(null);
     const badgeRef = useRef(null);
+    const metalRateIdRef = useRef(null);
+    const metalWeightRef = useRef(null);
+
+    useEffect(() => {
+        const fetchRates = async () => {
+            if (isMetal) {
+                const api = new ApiClient();
+                try {
+                    const response = await api.resourceAction({ resourceId: 'metal_rates', actionName: 'list' });
+                    if (response.data && response.data.records) {
+                        setMetalRates(response.data.records);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch metal rates", e);
+                }
+            }
+        };
+        fetchRates();
+    }, [isMetal]);
 
     const addItem = () => {
         if (!idRef.current.value.trim() && !nameRef.current.value.trim()) return;
@@ -19,11 +42,15 @@ const VariantList = (props) => {
                 id: idRef.current.value.trim(),
                 name: nameRef.current.value.trim(),
                 badge: badgeRef.current.value.trim(),
+                metalRateId: metalRateIdRef.current ? metalRateIdRef.current.value : '',
+                metalWeight: metalWeightRef.current ? metalWeightRef.current.value.trim() : '',
             },
         ];
         idRef.current.value = "";
         nameRef.current.value = "";
         badgeRef.current.value = ""; // Optional
+        if (metalRateIdRef.current) metalRateIdRef.current.value = "";
+        if (metalWeightRef.current) metalWeightRef.current.value = "";
         setEntries(updated);
         updateAdminJS(updated);
     };
@@ -53,6 +80,8 @@ const VariantList = (props) => {
                 const id = record.params[`${property.name}.${i}.id`];
                 const name = record.params[`${property.name}.${i}.name`];
                 const badge = record.params[`${property.name}.${i}.badge`];
+                const metalRateId = record.params[`${property.name}.${i}.metalRateId`];
+                const metalWeight = record.params[`${property.name}.${i}.metalWeight`];
                 if (id === undefined && name === undefined) break; // Stop if no more
                 // If it's a deleted item (maybe AdminJS sends undefined?), skip? 
                 // Actually AdminJS usually keeps indices sequential or we just accept what is there.
@@ -62,7 +91,9 @@ const VariantList = (props) => {
                 items.push({
                     id: id || '',
                     name: name || '',
-                    badge: badge || ''
+                    badge: badge || '',
+                    metalRateId: metalRateId || '',
+                    metalWeight: metalWeight || ''
                 });
                 i++;
             }
@@ -91,6 +122,8 @@ const VariantList = (props) => {
             flatParams[`${property.name}.${index}.id`] = item.id;
             flatParams[`${property.name}.${index}.name`] = item.name;
             flatParams[`${property.name}.${index}.badge`] = item.badge;
+            flatParams[`${property.name}.${index}.metalRateId`] = item.metalRateId;
+            flatParams[`${property.name}.${index}.metalWeight`] = item.metalWeight;
         });
 
         // 2. Call onChange for each key? No, that's too many renders.
@@ -123,6 +156,23 @@ const VariantList = (props) => {
                     <Label variant="light" size="sm">Badge (e.g. Made to Order)</Label>
                     <Input ref={badgeRef} placeholder="Badge" width="100%" />
                 </Box>
+                {isMetal && (
+                    <Box flex={2} flexDirection="row" gap="default" width="100%">
+                        <Box flex={1}>
+                            <Label variant="light" size="sm">Metal Rate</Label>
+                            <select ref={metalRateIdRef} style={{ width: '100%', height: '36px', padding: '0 8px', borderColor: '#c8d1db', borderRadius: '4px' }}>
+                                <option value="">Select Rate</option>
+                                {metalRates.map(r => (
+                                    <option key={r.id} value={r.id}>{r.params.name}</option>
+                                ))}
+                            </select>
+                        </Box>
+                        <Box flex={1}>
+                            <Label variant="light" size="sm">Weight (g)</Label>
+                            <Input ref={metalWeightRef} placeholder="e.g. 3.5" width="100%" />
+                        </Box>
+                    </Box>
+                )}
                 <Box>
                     <Button
                         type="button"
@@ -140,6 +190,12 @@ const VariantList = (props) => {
                     <input type="hidden" name={`${property.name}.${index}.id`} value={item.id || ''} />
                     <input type="hidden" name={`${property.name}.${index}.name`} value={item.name || ''} />
                     <input type="hidden" name={`${property.name}.${index}.badge`} value={item.badge || ''} />
+                    {isMetal && (
+                        <div key={`hidden-metals-${index}`}>
+                            <input type="hidden" name={`${property.name}.${index}.metalRateId`} value={item.metalRateId || ''} />
+                            <input type="hidden" name={`${property.name}.${index}.metalWeight`} value={item.metalWeight || ''} />
+                        </div>
+                    )}
                 </div>
             ))}
 
@@ -149,27 +205,34 @@ const VariantList = (props) => {
                         <TableCell>ID</TableCell>
                         <TableCell>Name</TableCell>
                         <TableCell>Badge</TableCell>
+                        {isMetal && <TableCell>Rate/Weight</TableCell>}
                         <TableCell>Action</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {entries.map((item, index) => (
-                        <TableRow key={index}>
-                            <TableCell>{item.id}</TableCell>
-                            <TableCell>{item.name}</TableCell>
-                            <TableCell>{item.badge}</TableCell>
-                            <TableCell>
-                                <Button
-                                    size="sm"
-                                    variant="danger"
-                                    type="button"
-                                    onClick={() => removeEntry(index)}
-                                >
-                                    Remove
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                    {entries.map((item, index) => {
+                        const rateName = metalRates.find(r => String(r.id) === String(item.metalRateId))?.params?.name || item.metalRateId;
+                        return (
+                            <TableRow key={index}>
+                                <TableCell>{item.id}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>{item.badge}</TableCell>
+                                {isMetal && (
+                                    <TableCell>{rateName ? `${rateName} @ ${item.metalWeight}g` : '-'}</TableCell>
+                                )}
+                                <TableCell>
+                                    <Button
+                                        size="sm"
+                                        variant="danger"
+                                        type="button"
+                                        onClick={() => removeEntry(index)}
+                                    >
+                                        Remove
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
                 </TableBody>
             </Table>
         </Box>
