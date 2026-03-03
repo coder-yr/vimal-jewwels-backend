@@ -95,7 +95,7 @@ const createDatabaseReference = () => {
 
   // MAPPINGs
   db.megaCategories.hasMany(db.styles, {
-    as: "styles",
+    as: "megaCategoryStyles",
     foreignKey: "megaCategoryId",
   });
   db.styles.belongsTo(db.megaCategories, {
@@ -103,7 +103,7 @@ const createDatabaseReference = () => {
     foreignKey: "megaCategoryId",
   });
   db.megaCategories.hasMany(db.materials, {
-    as: "materials",
+    as: "megaCategoryMaterials",
     foreignKey: "megaCategoryId",
   });
   db.materials.belongsTo(db.megaCategories, {
@@ -111,7 +111,7 @@ const createDatabaseReference = () => {
     foreignKey: "megaCategoryId",
   });
   db.megaCategories.hasMany(db.shopFor, {
-    as: "shopFors",
+    as: "megaCategoryShopFors",
     foreignKey: "megaCategoryId",
   });
   db.shopFor.belongsTo(db.megaCategories, {
@@ -119,7 +119,7 @@ const createDatabaseReference = () => {
     foreignKey: "megaCategoryId",
   });
   db.megaCategories.hasMany(db.occasions, {
-    as: "occassions",
+    as: "megaCategoryOccasions",
     foreignKey: "megaCategoryId",
   });
   db.occasions.belongsTo(db.megaCategories, {
@@ -128,7 +128,7 @@ const createDatabaseReference = () => {
   });
 
   db.megaCategories.hasMany(db.categories, {
-    as: "categories",
+    as: "megaCategoryCategories",
     foreignKey: "megaCategoryId",
   });
   db.categories.belongsTo(db.megaCategories, {
@@ -137,7 +137,7 @@ const createDatabaseReference = () => {
   });
 
   db.categories.hasMany(db.products, {
-    as: "products",
+    as: "categoryProducts",
     foreignKey: "categoryId",
   });
   db.products.belongsTo(db.categories, {
@@ -145,7 +145,7 @@ const createDatabaseReference = () => {
     foreignKey: "categoryId",
   });
   db.collections.hasMany(db.products, {
-    as: "products",
+    as: "collectionProducts",
     foreignKey: "collectionId",
   });
   db.products.belongsTo(db.collections, {
