@@ -10,23 +10,23 @@ router.get("/", async (req, res) => {
             include: [
                 {
                     model: db.categories,
-                    as: "categories",
+                    as: "megaCategoryCategories",
                 },
                 {
                     model: db.styles,
-                    as: "styles",
+                    as: "megaCategoryStyles",
                 },
                 {
                     model: db.materials,
-                    as: "materials",
+                    as: "megaCategoryMaterials",
                 },
                 {
                     model: db.shopFor,
-                    as: "shopFors",
+                    as: "megaCategoryShopFors",
                 },
                 {
                     model: db.occasions,
-                    as: "occassions",
+                    as: "megaCategoryOccasions",
                 },
             ],
         });
@@ -34,6 +34,22 @@ router.get("/", async (req, res) => {
         // Transform images to {src, alt} format
         const transformedData = megaCategories.map(cat => {
             const catData = cat.toJSON();
+
+            // Re-map back to backwards-compatible API json keys
+            catData.categories = catData.megaCategoryCategories;
+            delete catData.megaCategoryCategories;
+
+            catData.styles = catData.megaCategoryStyles;
+            delete catData.megaCategoryStyles;
+
+            catData.materials = catData.megaCategoryMaterials;
+            delete catData.megaCategoryMaterials;
+
+            catData.occassions = catData.megaCategoryOccasions;
+            delete catData.megaCategoryOccasions;
+
+            catData.shopFors = catData.megaCategoryShopFors;
+            delete catData.megaCategoryShopFors;
 
             if (catData.categories) {
                 catData.categories = catData.categories.map(c => ({ ...c, image: transformImageUrl(c.image) }));
