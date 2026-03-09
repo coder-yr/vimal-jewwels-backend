@@ -8,6 +8,7 @@ const VariantList = (props) => {
     const [metalRates, setMetalRates] = useState([]);
 
     const isMetal = Boolean((property.name && property.name.toLowerCase().includes('metal')) || (property.path && property.path.toLowerCase().includes('metal')));
+    const isDiamond = Boolean((property.name && property.name.toLowerCase().includes('diamond')) || (property.path && property.path.toLowerCase().includes('diamond')));
 
     // Refs for new entry inputs
     const idRef = useRef(null);
@@ -15,6 +16,9 @@ const VariantList = (props) => {
     const badgeRef = useRef(null);
     const metalRateIdRef = useRef(null);
     const metalWeightRef = useRef(null);
+    // Diamond-specific refs
+    const diamondRateRef = useRef(null);   // rate per carat (₹)
+    const diamondWeightRef = useRef(null); // weight in carats
 
     useEffect(() => {
         const fetchRates = async () => {
@@ -44,13 +48,18 @@ const VariantList = (props) => {
                 badge: badgeRef.current.value.trim(),
                 metalRateId: metalRateIdRef.current ? metalRateIdRef.current.value : '',
                 metalWeight: metalWeightRef.current ? metalWeightRef.current.value.trim() : '',
+                // Diamond fields
+                diamondRate: diamondRateRef.current ? diamondRateRef.current.value.trim() : '',
+                diamondWeight: diamondWeightRef.current ? diamondWeightRef.current.value.trim() : '',
             },
         ];
         idRef.current.value = "";
         nameRef.current.value = "";
-        badgeRef.current.value = ""; // Optional
+        badgeRef.current.value = "";
         if (metalRateIdRef.current) metalRateIdRef.current.value = "";
         if (metalWeightRef.current) metalWeightRef.current.value = "";
+        if (diamondRateRef.current) diamondRateRef.current.value = "";
+        if (diamondWeightRef.current) diamondWeightRef.current.value = "";
         setEntries(updated);
         updateAdminJS(updated);
     };
@@ -65,7 +74,6 @@ const VariantList = (props) => {
     useEffect(() => {
         let value = record.params[property.name];
 
-        // If it's a JSON string?
         if (typeof value === 'string') {
             try { value = JSON.parse(value); } catch (e) { }
         }
@@ -73,7 +81,6 @@ const VariantList = (props) => {
         if (Array.isArray(value)) {
             setEntries(value);
         } else {
-            // Check for flattened params: availableMetals.0.id
             const items = [];
             let i = 0;
             while (true) {
@@ -82,22 +89,21 @@ const VariantList = (props) => {
                 const badge = record.params[`${property.name}.${i}.badge`];
                 const metalRateId = record.params[`${property.name}.${i}.metalRateId`];
                 const metalWeight = record.params[`${property.name}.${i}.metalWeight`];
-                if (id === undefined && name === undefined) break; // Stop if no more
-                // If it's a deleted item (maybe AdminJS sends undefined?), skip? 
-                // Actually AdminJS usually keeps indices sequential or we just accept what is there.
-                // But initially record.params should have the data.
+                const diamondRate = record.params[`${property.name}.${i}.diamondRate`];
+                const diamondWeight = record.params[`${property.name}.${i}.diamondWeight`];
+                if (id === undefined && name === undefined) break;
 
-                // If ID or Name exists, add it
                 items.push({
                     id: id || '',
                     name: name || '',
                     badge: badge || '',
                     metalRateId: metalRateId || '',
-                    metalWeight: metalWeight || ''
+                    metalWeight: metalWeight || '',
+                    diamondRate: diamondRate || '',
+                    diamondWeight: diamondWeight || '',
                 });
                 i++;
             }
-            // If items found via flattening, use them
             if (items.length > 0) {
                 setEntries(items);
             } else {
@@ -106,17 +112,7 @@ const VariantList = (props) => {
         }
     }, [record.params, property.name]);
 
-    // Update AdminJS state when entries change
-    // We use a separate useEffect/function to trigger onChange, 
-    // BUT we must be careful not to trigger infinite loops if we depend on record.params
-    // So we'll trigger onChange only on user actions (addItem, removeItem)
-
     const updateAdminJS = (newEntries) => {
-        // We need to update flattened keys: property.name.index.field
-        // And also potentially clear old indices if array shrank?
-        // Actually, easier to sending the whole array if supported, but let's flatten.
-
-        // 1. Flatten new entries
         const flatParams = {};
         newEntries.forEach((item, index) => {
             flatParams[`${property.name}.${index}.id`] = item.id;
@@ -124,19 +120,11 @@ const VariantList = (props) => {
             flatParams[`${property.name}.${index}.badge`] = item.badge;
             flatParams[`${property.name}.${index}.metalRateId`] = item.metalRateId;
             flatParams[`${property.name}.${index}.metalWeight`] = item.metalWeight;
+            flatParams[`${property.name}.${index}.diamondRate`] = item.diamondRate;
+            flatParams[`${property.name}.${index}.diamondWeight`] = item.diamondWeight;
         });
 
-        // 2. Call onChange for each key? No, that's too many renders.
-        // AdminJS onChange usually accepts (path, value).
-        // If we want to batch, we might need to access the record directly or use specific AdminJS hooks.
-        // But the standard prop is onChange(path, value).
-
-        // To avoid spamming, let's try sending the ARRAY to the main property name.
-        // Many AdminJS adapters accept this for JSON/Mixed fields.
         props.onChange(property.name, newEntries);
-
-        // Also update flattened keys? 
-        // If we send the array to property.name, AdminJS usually handles it if type is 'mixed' + 'isArray'.
     };
 
 
@@ -156,6 +144,8 @@ const VariantList = (props) => {
                     <Label variant="light" size="sm">Badge (e.g. Made to Order)</Label>
                     <Input ref={badgeRef} placeholder="Badge" width="100%" />
                 </Box>
+
+                {/* Metal-specific fields */}
                 {isMetal && (
                     <Box flex={2} flexDirection="row" gap="default" width="100%">
                         <Box flex={1}>
@@ -173,6 +163,21 @@ const VariantList = (props) => {
                         </Box>
                     </Box>
                 )}
+
+                {/* Diamond-specific fields */}
+                {isDiamond && (
+                    <Box flex={2} flexDirection="row" gap="default" width="100%">
+                        <Box flex={1}>
+                            <Label variant="light" size="sm">Rate per Carat (₹)</Label>
+                            <Input ref={diamondRateRef} placeholder="e.g. 5000" width="100%" />
+                        </Box>
+                        <Box flex={1}>
+                            <Label variant="light" size="sm">Weight (Carats)</Label>
+                            <Input ref={diamondWeightRef} placeholder="e.g. 0.25" width="100%" />
+                        </Box>
+                    </Box>
+                )}
+
                 <Box>
                     <Button
                         type="button"
@@ -196,6 +201,12 @@ const VariantList = (props) => {
                             <input type="hidden" name={`${property.name}.${index}.metalWeight`} value={item.metalWeight || ''} />
                         </div>
                     )}
+                    {isDiamond && (
+                        <div key={`hidden-diamonds-${index}`}>
+                            <input type="hidden" name={`${property.name}.${index}.diamondRate`} value={item.diamondRate || ''} />
+                            <input type="hidden" name={`${property.name}.${index}.diamondWeight`} value={item.diamondWeight || ''} />
+                        </div>
+                    )}
                 </div>
             ))}
 
@@ -206,6 +217,7 @@ const VariantList = (props) => {
                         <TableCell>Name</TableCell>
                         <TableCell>Badge</TableCell>
                         {isMetal && <TableCell>Rate/Weight</TableCell>}
+                        {isDiamond && <TableCell>Rate/Weight</TableCell>}
                         <TableCell>Action</TableCell>
                     </TableRow>
                 </TableHead>
@@ -219,6 +231,13 @@ const VariantList = (props) => {
                                 <TableCell>{item.badge}</TableCell>
                                 {isMetal && (
                                     <TableCell>{rateName ? `${rateName} @ ${item.metalWeight}g` : '-'}</TableCell>
+                                )}
+                                {isDiamond && (
+                                    <TableCell>
+                                        {item.diamondRate && item.diamondWeight
+                                            ? `₹${item.diamondRate}/ct @ ${item.diamondWeight}ct`
+                                            : '-'}
+                                    </TableCell>
                                 )}
                                 <TableCell>
                                     <Button

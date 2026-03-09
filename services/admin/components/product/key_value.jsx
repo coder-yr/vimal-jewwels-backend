@@ -26,10 +26,52 @@ const KeyValueList = (props) => {
     setEntries(updated);
   };
 
-  // Load existing data
+  // Load existing data — reads AdminJS flattened dot-notation params first,
+  // then falls back to raw JSON string/object/array
   useEffect(() => {
-    const value = record.params[property.name] || [];
-    setEntries(Array.isArray(value) ? value : []);
+    const params = record.params;
+    const name = property.name;
+
+    // 1. Try AdminJS flattened format: name.0.key, name.0.value, name.1.key ...
+    const flattened = [];
+    let i = 0;
+    while (true) {
+      const k = params[`${name}.${i}.key`];
+      const v = params[`${name}.${i}.value`];
+      if (k !== undefined || v !== undefined) {
+        flattened.push({ key: k ?? "", value: v ?? "" });
+        i++;
+      } else {
+        break;
+      }
+    }
+
+    if (flattened.length > 0) {
+      setEntries(flattened);
+      return;
+    }
+
+    // 2. Fallback: raw value stored as JSON string, object, or array
+    const raw = params[name];
+    if (!raw) return;
+
+    try {
+      let parsed = raw;
+      if (typeof raw === "string") parsed = JSON.parse(raw);
+
+      if (Array.isArray(parsed)) {
+        setEntries(parsed.filter(e => e && e.key));
+        return;
+      }
+
+      if (typeof parsed === "object" && parsed !== null) {
+        setEntries(
+          Object.entries(parsed).map(([key, value]) => ({ key, value: String(value) }))
+        );
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
   }, [record.params, property.name]);
 
   // Always sync entries to record.params for saving

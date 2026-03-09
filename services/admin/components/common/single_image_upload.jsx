@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, DropZone } from "@adminjs/design-system";
+import { Box, DropZone, Label } from "@adminjs/design-system";
 import axios from "axios";
 import { serverUrlApi, serverUrlImage } from "../constants";
 const UploadSingleImage = (props) => {
@@ -40,7 +40,8 @@ const UploadSingleImage = (props) => {
     }
   };
   return (
-    <Box>
+    <Box mb="xl">
+      <Label>{property.label || property.name}</Label>
       <DropZone
         onChange={fileUpload}
         validate={{

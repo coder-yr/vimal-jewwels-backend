@@ -51,10 +51,6 @@ const components = {
     "SizeChart",
     path.join(__dirname, "components/product/size_chart.jsx"),
   ),
-  MaterialsShow: loader.add(
-    "MaterialsShow",
-    path.join(__dirname, "components/product/materials_show.jsx"),
-  ),
   MegaMenuShow: loader.add(
     "MegaMenuShow",
     path.join(__dirname, "components/mega_menu/mega_menu_show.jsx"),

@@ -102,14 +102,17 @@ router.get("/:slug", async (req, res) => {
       }
     }
 
+    // Build ORDER clause for sort
+    let order = [["createdAt", "DESC"]]; // default
+    if (req.query.sort === "price_asc") order = [["price", "ASC"]];
+    else if (req.query.sort === "price_desc") order = [["price", "DESC"]];
+    else if (req.query.sort === "newest") order = [["createdAt", "DESC"]];
+    else if (req.query.sort === "name_asc") order = [["name", "ASC"]];
+
     let products = await db.products.findAll({
       where,
+      order,
       include: [
-        {
-          model: db.materials,
-          as: "materials",
-          through: { attributes: [] }
-        },
         {
           model: db.globalMaterials,
           as: "globalMaterials",
@@ -117,6 +120,7 @@ router.get("/:slug", async (req, res) => {
         }
       ]
     });
+
 
     // Parse images field for each product and transform to {src, alt} format
     products = products.map(product => {
@@ -159,14 +163,12 @@ router.get("/:slug", async (req, res) => {
 
         if (req.query.material) {
           const materialFilters = req.query.material.split(',').map((m) => m.toLowerCase());
-          const productMaterials = product.materials || [];
           const globalMaterials = product.globalMaterials || [];
 
-          const hasMaterialMatch = productMaterials.some(m => materialFilters.includes(m.name.toLowerCase()));
           const hasGlobalMatch = globalMaterials.some(m => materialFilters.includes(m.name.toLowerCase()));
           const hasSummaryMatch = materialFilters.includes(getSummaryValue("material").toLowerCase());
 
-          if (!hasMaterialMatch && !hasGlobalMatch && !hasSummaryMatch) {
+          if (!hasGlobalMatch && !hasSummaryMatch) {
             match = false;
           }
         }

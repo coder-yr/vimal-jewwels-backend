@@ -28,6 +28,11 @@ import settings from '../models/settings.js';
 import appointments from '../models/appointments.js';
 import inquiries from '../models/inquiries.js';
 import footerConfig from '../models/footer_config.js';
+import reviews from '../models/reviews.js';
+import addresses from '../models/addresses.js';
+import returnRequests from '../models/return_requests.js';
+import cartItems from '../models/cart_items.js';
+import coupons from '../models/coupons.js';
 
 // CREATEs A DATABASE CONNECTION AND INSTANCE
 const createDatabaseReference = () => {
@@ -91,6 +96,11 @@ const createDatabaseReference = () => {
     appointments: appointments(sequelize),
     inquiries: inquiries(sequelize),
     footerConfigs: footerConfig(sequelize),
+    reviews: reviews(sequelize),
+    addresses: addresses(sequelize, Sequelize.DataTypes),
+    returnRequests: returnRequests(sequelize),
+    cartItems: cartItems(sequelize),
+    coupons: coupons(sequelize),
   };
 
   // MAPPINGs
@@ -153,6 +163,15 @@ const createDatabaseReference = () => {
     foreignKey: "collectionId",
   });
 
+  db.products.hasMany(db.reviews, {
+    as: "reviews",
+    foreignKey: "productId",
+  });
+  db.reviews.belongsTo(db.products, {
+    as: "product",
+    foreignKey: "productId",
+  });
+
   // Many-to-Many Relationship: Products <-> Materials
   db.products.belongsToMany(db.materials, {
     through: db.productMaterials,
@@ -185,6 +204,41 @@ const createDatabaseReference = () => {
     foreignKey: "metalRateId",
   });
 
+  db.users.hasMany(db.addresses, {
+    as: "addresses",
+    foreignKey: "userId",
+  });
+  db.addresses.belongsTo(db.users, {
+    as: "user",
+    foreignKey: "userId",
+  });
+
+  db.users.hasMany(db.returnRequests, {
+    as: "returnRequests",
+    foreignKey: "userId",
+  });
+  db.returnRequests.belongsTo(db.users, {
+    as: "user",
+    foreignKey: "userId",
+  });
+
+  db.users.hasMany(db.cartItems, {
+    as: "cartItems",
+    foreignKey: "userId",
+  });
+  db.cartItems.belongsTo(db.users, {
+    as: "user",
+    foreignKey: "userId",
+  });
+
+  db.products.hasMany(db.cartItems, {
+    as: "cartItems",
+    foreignKey: "productId",
+  });
+  db.cartItems.belongsTo(db.products, {
+    as: "product",
+    foreignKey: "productId",
+  });
 
   return db;
 };

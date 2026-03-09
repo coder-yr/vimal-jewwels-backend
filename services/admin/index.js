@@ -54,7 +54,6 @@ const admin = new AdminJS({
       }
     },
   },
-  databases: [db],
   settings: {
     defaultPerPage: 500,
   },
@@ -72,6 +71,23 @@ const admin = new AdminJS({
             components: {
               edit: components.DescriptionRichText,
             },
+          },
+        },
+      },
+    },
+    {
+      resource: db.coupons,
+      options: {
+        navigation: {
+          name: "Catalog",
+          icon: "ShoppingBag",
+        },
+        properties: {
+          discountType: {
+            availableValues: [
+              { value: "FLAT", label: "Flat Amount" },
+              { value: "PERCENTAGE", label: "Percentage %" },
+            ],
           },
         },
       },
@@ -196,6 +212,47 @@ const admin = new AdminJS({
       },
     },
     {
+      resource: db.returnRequests,
+      options: {
+        navigation: {
+          name: "Inquiries",
+          icon: "RotateCcw",
+        },
+        listProperties: [
+          "id",
+          "orderId",
+          "userId",
+          "reason",
+          "status",
+          "createdAt",
+        ],
+        filterProperties: ["status", "orderId", "userId"],
+        showProperties: [
+          "id",
+          "orderId",
+          "userId",
+          "reason",
+          "comments",
+          "status",
+          "createdAt",
+        ],
+        editProperties: ["status", "comments"],
+        properties: {
+          comments: { type: "textarea", label: "Comments" },
+          status: {
+            availableValues: [
+              { value: "Pending", label: "Pending" },
+              { value: "Under Review", label: "Under Review" },
+              { value: "Approved", label: "Approved" },
+              { value: "Rejected", label: "Rejected" },
+              { value: "Item Received", label: "Item Received" },
+              { value: "Refund Processed", label: "Refund Processed" },
+            ],
+          },
+        },
+      },
+    },
+    {
       resource: db.products,
       options: {
         navigation: {
@@ -203,6 +260,7 @@ const admin = new AdminJS({
           icon: "Heart",
         },
         editProperties: [
+
           // Basic Info
           "name",
           "slug",
@@ -211,7 +269,6 @@ const admin = new AdminJS({
           // Pricing & Inventory
           "mrp",
           "price",
-          "priceBreakup",
           "taxRate",
           "metalRateId",
           "makingCharges",
@@ -234,8 +291,6 @@ const admin = new AdminJS({
           "availableMetals",
           "availableDiamonds",
           "sizes",
-          "sizeChart",
-          "materials",
           "globalMaterials",
 
           // Media
@@ -304,8 +359,11 @@ const admin = new AdminJS({
             },
           },
           sizeChart: {
-            components: {
-              edit: components.SizeChart,
+            isVisible: {
+              list: false,
+              filter: false,
+              show: false,
+              edit: false,
             },
           },
           globalMaterials: {
@@ -314,17 +372,6 @@ const admin = new AdminJS({
             type: "reference",
             reference: "global_materials",
             isArray: true,
-          },
-          materials: {
-            label: "Linked Materials (Mega Menu)", // Distinguished Label
-            isVisible: { list: true, filter: true, show: true, edit: true },
-            type: "reference",
-            reference: "materials",
-            isArray: true,
-            components: {
-              show: components.MaterialsShow,
-              list: components.MaterialsShow,
-            },
           },
           sizes: {
             components: {
@@ -355,20 +402,19 @@ const admin = new AdminJS({
               id: { type: "string" },
               name: { type: "string" },
               badge: { type: "string" },
-              grossWeight: { type: "string", label: "Gross Weight (g)" },
+              diamondRate: { type: "string", label: "Rate per Carat (Rs)" },
+              diamondWeight: { type: "string", label: "Weight (Carats)" },
             },
           },
           priceBreakup: {
             type: "mixed",
             isArray: true,
-            label: "Price Breakup (Overrides Auto-Calculation)",
-            components: {
-              edit: components.PriceBreakupList,
-            },
-            properties: {
-              label: { type: "string" },
-              amount: { type: "string" },
-              original: { type: "string" },
+            label: "Price Breakup (Auto-Calculated)",
+            isVisible: {
+              list: false,
+              filter: false,
+              show: false,
+              edit: false,
             },
           },
         },
@@ -429,115 +475,32 @@ const admin = new AdminJS({
                 }
               }
 
-              // --- VALIDATION FOR PRICE BREAKUP ---
-              const extractUniqueArray = (prefix, fields) => {
-                const items = [];
-                let maxIndex = -1;
-                Object.keys(payload).forEach((key) => {
-                  if (key.startsWith(`${prefix}.`)) {
-                    const parts = key.split(".");
-                    const idx = parseInt(parts[1], 10);
-                    if (!isNaN(idx) && idx > maxIndex) maxIndex = idx;
-                  }
-                });
-                for (let i = 0; i <= maxIndex; i++) {
-                  const item = {};
-                  let hasData = false;
-                  fields.forEach((field) => {
-                    const val = payload[`${prefix}.${i}.${field}`];
-                    if (val !== undefined) {
-                      item[field] = val;
-                      hasData = true;
-                    }
-                  });
-                  if (hasData) items.push(item);
-                }
-                return items;
-              };
-
-              /* 
-              const pbItems = extractUniqueArray("priceBreakup", ["amount"]);
-              if (pbItems.length > 0) {
-                const totalBreakup = pbItems.reduce(
-                  (sum, item) => sum + (parseFloat(item.amount) || 0),
-                  0,
-                );
-
-                const finalProductPrice = parseFloat(payload.price) || 0;
-
-                if (totalBreakup > finalProductPrice) {
-                  throw new AdminJS.ValidationError({
-                    priceBreakup: {
-                      message: `Price breakup total (₹${totalBreakup}) cannot exceed the product price (₹${finalProductPrice}).`,
-                    },
-                  });
-                }
-              }
-              */
-
               return request;
             },
             after: async (response, request, context) => {
               const record = response.record;
 
-              // Manual Save Override
-
-              // Extract materials from payload.
-              let materialIds = [];
-              const payload = request.payload || {};
-
-              if (payload.materials) {
-                if (Array.isArray(payload.materials)) {
-                  materialIds = payload.materials;
-                } else if (typeof payload.materials === "object") {
-                  // Sometimes array-like object {0: '1', 1: '5'}
-                  materialIds = Object.values(payload.materials);
-                }
-              } else {
-                // Check for flattened keys
-                Object.keys(payload).forEach((key) => {
-                  if (key.startsWith("materials.")) {
-                    materialIds.push(payload[key]);
-                  }
-                });
-              }
-
-              // parseInt
-              const ids = materialIds
-                .map((id) => parseInt(id, 10))
-                .filter((id) => !isNaN(id));
-
-              // --- MANUAL SAVE FOR PRODUCT SUMMARY & DETAILS JSON ---
               if (record && record.params.id) {
                 try {
                   const payload = request.payload || {};
 
-                  // Helper to extract array from flattened keys
                   // Helper to extract array from flattened keys OR direct array
                   const extractArray = (prefix, fields = ["key", "value"]) => {
-                    // 1. Check if payload[prefix] is already an array (from onChange(prop, array))
                     if (payload[prefix]) {
                       let data = payload[prefix];
-                      // Try parsing if string
                       if (typeof data === "string") {
-                        try {
-                          data = JSON.parse(data);
-                        } catch (e) { }
+                        try { data = JSON.parse(data); } catch (e) { }
                       }
-
                       if (Array.isArray(data)) {
                         return data.map((item) => {
                           const newItem = {};
-                          fields.forEach((f) => {
-                            if (item[f] !== undefined) newItem[f] = item[f];
-                          });
+                          fields.forEach((f) => { if (item[f] !== undefined) newItem[f] = item[f]; });
                           return newItem;
                         });
                       }
                     }
 
                     const items = [];
-                    // Find max index
                     let maxIndex = -1;
                     Object.keys(payload).forEach((key) => {
                       if (key.startsWith(`${prefix}.`)) {
@@ -552,85 +515,35 @@ const admin = new AdminJS({
                       let hasData = false;
                       fields.forEach((field) => {
                         const val = payload[`${prefix}.${i}.${field}`];
-                        if (val !== undefined) {
-                          item[field] = val;
-                          hasData = true;
-                        }
+                        if (val !== undefined) { item[field] = val; hasData = true; }
                       });
                       if (hasData) items.push(item);
                     }
                     return items;
                   };
 
-                  const summaryItems = extractArray("productSummary", [
-                    "key",
-                    "value",
-                  ]);
-                  const detailItems = extractArray("productDetails", [
-                    "key",
-                    "value",
-                  ]);
-                  const metalItems = extractArray("availableMetals", [
-                    "id",
-                    "name",
-                    "badge",
-                    "metalRateId",
-                    "metalWeight",
-                  ]);
-                  const diamondItems = extractArray("availableDiamonds", [
-                    "id",
-                    "name",
-                    "badge",
-                  ]);
-
+                  const summaryItems = extractArray("productSummary", ["key", "value"]);
+                  const detailItems = extractArray("productDetails", ["key", "value"]);
+                  const metalItems = extractArray("availableMetals", ["id", "name", "badge", "metalRateId", "metalWeight"]);
+                  const diamondItems = extractArray("availableDiamonds", ["id", "name", "badge", "diamondRate", "diamondWeight"]);
 
                   const pToUpdate = {};
-                  if (summaryItems.length > 0)
-                    pToUpdate.productSummary = summaryItems;
-                  if (detailItems.length > 0)
-                    pToUpdate.productDetails = detailItems;
-                  if (metalItems.length > 0)
-                    pToUpdate.availableMetals = metalItems;
-                  if (diamondItems.length > 0)
-                    pToUpdate.availableDiamonds = diamondItems;
+                  if (summaryItems.length > 0) pToUpdate.productSummary = summaryItems;
+                  if (detailItems.length > 0) pToUpdate.productDetails = detailItems;
+                  if (metalItems.length > 0) pToUpdate.availableMetals = metalItems;
+                  if (diamondItems.length > 0) pToUpdate.availableDiamonds = diamondItems;
 
                   if (Object.keys(pToUpdate).length > 0) {
-                    await db.products.update(pToUpdate, {
-                      where: { id: record.params.id },
-                    });
+                    await db.products.update(pToUpdate, { where: { id: record.params.id } });
                   }
-                } catch (err) {
-                  console.error("Error manual saving JSON fields:", err);
-                }
-              }
 
-              // If record exists, manually save
-              // Update: We should always update if payload has materials keys, to handle unselect all (empty array)
-              // But AdminJS might not send empty array if field untouched?
-              // Default behavior: if 'materials' key exists in payload (even empty), we update.
-
-              if (record && record.params.id) {
-                try {
-                  const product = await db.products.findByPk(record.params.id);
-                  if (product) {
-                    await product.setMaterials(ids);
-                  }
-                } catch (err) {
-                  console.error("❌ Error manual saving materials:", err);
-                }
-
-                // --- MANAUL SAVE GLOBAL MATERIALS ---
-                try {
+                  // --- MANUAL SAVE GLOBAL MATERIALS ---
                   let globalMaterialIds = [];
-                  const payload = request.payload || {};
-                  // Check payload
                   if (payload.globalMaterials) {
                     if (Array.isArray(payload.globalMaterials)) {
                       globalMaterialIds = payload.globalMaterials;
                     } else if (typeof payload.globalMaterials === "object") {
-                      globalMaterialIds = Object.values(
-                        payload.globalMaterials,
-                      );
+                      globalMaterialIds = Object.values(payload.globalMaterials);
                     }
                   } else {
                     Object.keys(payload).forEach((key) => {
@@ -640,27 +553,15 @@ const admin = new AdminJS({
                     });
                   }
 
-                  const gmIds = globalMaterialIds
-                    .map((id) => parseInt(id, 10))
-                    .filter((id) => !isNaN(id));
-
-                  // Only update if payload had keys related to globalMaterials or if we want to force update
-                  // AdminJS usually sends empty keys if field is cleared? Verify.
-                  // For now, if we found any keys or if payload implies an update attempt.
-                  // Safer: Always update if we're in edit mode and the field is visible.
-
-                  if (gmIds.length >= 0) {
-                    // Even empty array to clear
-                    await product.setGlobalMaterials(gmIds);
+                  const gmIds = globalMaterialIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+                  const productInstance = await db.products.findByPk(record.params.id);
+                  if (productInstance) {
+                    await productInstance.setGlobalMaterials(gmIds);
                   }
                 } catch (err) {
-                  console.error(
-                    "❌ Error manual saving global materials:",
-                    err,
-                  );
+                  console.error("Error in product.new.after:", err);
                 }
               }
-
               return response;
             },
           },
@@ -717,53 +618,6 @@ const admin = new AdminJS({
                   }
                 }
 
-                // --- VALIDATION FOR PRICE BREAKUP ---
-                const extractUniqueArray = (prefix, fields) => {
-                  const items = [];
-                  let maxIndex = -1;
-                  Object.keys(payload).forEach((key) => {
-                    if (key.startsWith(`${prefix}.`)) {
-                      const parts = key.split(".");
-                      const idx = parseInt(parts[1], 10);
-                      if (!isNaN(idx) && idx > maxIndex) maxIndex = idx;
-                    }
-                  });
-                  for (let i = 0; i <= maxIndex; i++) {
-                    const item = {};
-                    let hasData = false;
-                    fields.forEach((field) => {
-                      const val = payload[`${prefix}.${i}.${field}`];
-                      if (val !== undefined) {
-                        item[field] = val;
-                        hasData = true;
-                      }
-                    });
-                    if (hasData) items.push(item);
-                  }
-                  return items;
-                };
-
-                /*
-                const pbItems = extractUniqueArray("priceBreakup", ["amount"]);
-                if (pbItems.length > 0) {
-                  const totalBreakup = pbItems.reduce(
-                    (sum, item) => sum + (parseFloat(item.amount) || 0),
-                    0,
-                  );
-
-                  // In edit mode, if price isn't in payload, we assume it hasn't somehow become 0.
-                  // Wait, we just calculated payload.price above if it was missing/0. 
-                  const finalProductPrice = parseFloat(payload.price);
-
-                  if (!isNaN(finalProductPrice) && totalBreakup > finalProductPrice) {
-                    throw new AdminJS.ValidationError({
-                      priceBreakup: {
-                        message: `Price breakup total (₹${totalBreakup}) cannot exceed the product price (₹${finalProductPrice}).`,
-                      },
-                    });
-                  }
-                }
-                */
               }
               return request;
             },
@@ -771,15 +625,10 @@ const admin = new AdminJS({
               const record = response.record;
 
               // --- MANUAL POPULATE ON GET (Edit View) ---
-              if (
-                request.method.toLowerCase() === "get" &&
-                record &&
-                record.params.id
-              ) {
+              if (request.method.toLowerCase() === "get" && record && record.params.id) {
                 try {
                   const p = await db.products.findByPk(record.params.id);
                   if (p) {
-                    // Manual unflatten productDetails
                     if (p.productDetails && Array.isArray(p.productDetails)) {
                       record.params["productDetails"] = p.productDetails;
                       p.productDetails.forEach((item, i) => {
@@ -787,8 +636,6 @@ const admin = new AdminJS({
                         record.params[`productDetails.${i}.value`] = item.value;
                       });
                     }
-
-                    // Manual unflatten productSummary
                     if (p.productSummary && Array.isArray(p.productSummary)) {
                       record.params["productSummary"] = p.productSummary;
                       p.productSummary.forEach((item, i) => {
@@ -796,136 +643,54 @@ const admin = new AdminJS({
                         record.params[`productSummary.${i}.value`] = item.value;
                       });
                     }
-
-                    // Manual unflatten availableMetals
                     if (p.availableMetals && Array.isArray(p.availableMetals)) {
                       p.availableMetals.forEach((item, i) => {
                         record.params[`availableMetals.${i}.id`] = item.id;
                         record.params[`availableMetals.${i}.name`] = item.name;
-                        record.params[`availableMetals.${i}.badge`] =
-                          item.badge;
+                        record.params[`availableMetals.${i}.badge`] = item.badge;
+                        record.params[`availableMetals.${i}.metalRateId`] = item.metalRateId;
+                        record.params[`availableMetals.${i}.metalWeight`] = item.metalWeight;
                       });
                     }
-
-                    // Manual unflatten availableDiamonds
-                    if (
-                      p.availableDiamonds &&
-                      Array.isArray(p.availableDiamonds)
-                    ) {
+                    if (p.availableDiamonds && Array.isArray(p.availableDiamonds)) {
                       p.availableDiamonds.forEach((item, i) => {
                         record.params[`availableDiamonds.${i}.id`] = item.id;
-                        record.params[`availableDiamonds.${i}.name`] =
-                          item.name;
-                        record.params[`availableDiamonds.${i}.badge`] =
-                          item.badge;
-                      });
-                    }
-
-                    // Manual unflatten priceBreakup
-                    if (p.priceBreakup && Array.isArray(p.priceBreakup)) {
-                      p.priceBreakup.forEach((item, i) => {
-                        record.params[`priceBreakup.${i}.label`] = item.label;
-                        record.params[`priceBreakup.${i}.amount`] = item.amount;
-                        record.params[`priceBreakup.${i}.original`] =
-                          item.original;
+                        record.params[`availableDiamonds.${i}.name`] = item.name;
+                        record.params[`availableDiamonds.${i}.badge`] = item.badge;
+                        record.params[`availableDiamonds.${i}.diamondRate`] = item.diamondRate;
+                        record.params[`availableDiamonds.${i}.diamondWeight`] = item.diamondWeight;
                       });
                     }
                   }
                   const product = await db.products.findByPk(record.params.id, {
-                    include: [
-                      {
-                        model: db.globalMaterials,
-                        as: "globalMaterials",
-                        through: { attributes: [] },
-                      },
-                    ],
+                    include: [{ model: db.globalMaterials, as: "globalMaterials", through: { attributes: [] } }],
                   });
-                  if (
-                    product &&
-                    product.globalMaterials &&
-                    product.globalMaterials.length > 0
-                  ) {
+                  if (product && product.globalMaterials && product.globalMaterials.length > 0) {
                     const gms = product.globalMaterials.map((m) => m.toJSON());
                     record.populated = record.populated || {};
-                    record.populated = record.populated || {};
-                    // Map params for frontend form
                     gms.forEach((m, i) => {
                       record.params[`globalMaterials.${i}`] = m.id;
                       record.populated[`globalMaterials.${i}`] = m;
                     });
                   }
                 } catch (err) {
-                  console.error(
-                    "Error manual populating global materials in edit:",
-                    err,
-                  );
+                  console.error("Error manual populating global materials in edit:", err);
                 }
               }
 
-              // Manual Save Override
-
-              // Extract materials from payload.
-              let materialIds = [];
-              let shouldUpdateMaterials = false;
-              const payload = request.payload || {};
-
-              if (payload.materials !== undefined) {
-                shouldUpdateMaterials = true;
-                if (Array.isArray(payload.materials)) {
-                  materialIds = payload.materials;
-                } else if (
-                  typeof payload.materials === "object" &&
-                  payload.materials !== null
-                ) {
-                  materialIds = Object.values(payload.materials);
-                }
-              } else {
-                // Check for flattened keys
-                const hasFlattenedKeys = Object.keys(payload).some((key) =>
-                  key.startsWith("materials."),
-                );
-                if (hasFlattenedKeys) {
-                  shouldUpdateMaterials = true;
-                  Object.keys(payload).forEach((key) => {
-                    if (key.startsWith("materials.")) {
-                      materialIds.push(payload[key]);
-                    }
-                  });
-                }
-              }
-
-              // parseInt
-              const ids = materialIds
-                .map((id) => parseInt(id, 10))
-                .filter((id) => !isNaN(id));
-
-              // --- MANUAL SAVE FOR PRODUCT SUMMARY & DETAILS JSON ---
-              if (
-                record &&
-                record.params.id &&
-                request.method.toLowerCase() === "post"
-              ) {
+              // --- MANUAL SAVE ON POST ---
+              if (record && record.params.id && request.method.toLowerCase() === "post") {
                 try {
                   const payload = request.payload || {};
-
-                  // Helper to extract array from flattened keys OR direct array
                   const extractArray = (prefix, fields = ["key", "value"]) => {
-                    // Helper to extract array from flattened payload or direct array
-
-
-                    // 1. Check if payload[prefix] is already an array (from onChange(prop, array))
                     if (payload[prefix] && Array.isArray(payload[prefix])) {
                       return payload[prefix].map((item) => {
                         const newItem = {};
-                        fields.forEach((f) => {
-                          if (item[f] !== undefined) newItem[f] = item[f];
-                        });
+                        fields.forEach((f) => { if (item[f] !== undefined) newItem[f] = item[f]; });
                         return newItem;
                       });
                     }
-
                     const items = [];
-                    // Find max index
                     let maxIndex = -1;
                     Object.keys(payload).forEach((key) => {
                       if (key.startsWith(`${prefix}.`)) {
@@ -934,147 +699,54 @@ const admin = new AdminJS({
                         if (!isNaN(idx) && idx > maxIndex) maxIndex = idx;
                       }
                     });
-
                     for (let i = 0; i <= maxIndex; i++) {
                       const item = {};
                       let hasData = false;
                       fields.forEach((field) => {
                         const val = payload[`${prefix}.${i}.${field}`];
-                        if (val !== undefined) {
-                          item[field] = val;
-                          hasData = true;
-                        }
+                        if (val !== undefined) { item[field] = val; hasData = true; }
                       });
                       if (hasData) items.push(item);
                     }
                     return items;
                   };
 
-                  const summaryItems = extractArray("productSummary", [
-                    "key",
-                    "value",
-                  ]);
-                  const detailItems = extractArray("productDetails", [
-                    "key",
-                    "value",
-                  ]);
-                  const metalItems = extractArray("availableMetals", [
-                    "id",
-                    "name",
-                    "badge",
-                    "metalRateId",
-                    "metalWeight",
-                  ]);
-                  const diamondItems = extractArray("availableDiamonds", [
-                    "id",
-                    "name",
-                    "badge",
-                  ]);
-                  const priceBreakupItems = extractArray("priceBreakup", [
-                    "label",
-                    "amount",
-                    "original",
-                  ]);
-
-
-                  // --- VALIDATION: Price Breakup Total must match Product Price ---
-                  /*
-                  if (priceBreakupItems.length > 0) {
-                    const totalBreakup = priceBreakupItems.reduce(
-                      (sum, item) => sum + (parseFloat(item.amount) || 0),
-                      0,
-                    );
-                    // Use updated price from record (edit action has completed)
-                    const productPrice = parseFloat(record.params.price || 0);
-
-
-                    if (Math.abs(totalBreakup - productPrice) > 1) {
-                      // 1 rupee tolerance
-                      throw new Error(
-                        `Validation Failed: Price Breakup Total (₹${totalBreakup}) must match Product Price (₹${productPrice}). Please correct the values.`,
-                      );
-                    }
-                  }
-                  */
-
+                  const summaryItems = extractArray("productSummary", ["key", "value"]);
+                  const detailItems = extractArray("productDetails", ["key", "value"]);
+                  const metalItems = extractArray("availableMetals", ["id", "name", "badge", "metalRateId", "metalWeight"]);
+                  const diamondItems = extractArray("availableDiamonds", ["id", "name", "badge", "diamondRate", "diamondWeight"]);
                   const pToUpdate = {};
-                  if (summaryItems.length > 0)
-                    pToUpdate.productSummary = summaryItems;
-                  if (detailItems.length > 0)
-                    pToUpdate.productDetails = detailItems;
-                  if (metalItems.length > 0)
-                    pToUpdate.availableMetals = metalItems;
-                  if (diamondItems.length > 0)
-                    pToUpdate.availableDiamonds = diamondItems;
-                  if (priceBreakupItems.length >= 0)
-                    pToUpdate.priceBreakup = priceBreakupItems;
-
+                  if (summaryItems.length > 0) pToUpdate.productSummary = summaryItems;
+                  if (detailItems.length > 0) pToUpdate.productDetails = detailItems;
+                  if (metalItems.length > 0) pToUpdate.availableMetals = metalItems;
+                  if (diamondItems.length > 0) pToUpdate.availableDiamonds = diamondItems;
 
                   if (Object.keys(pToUpdate).length > 0) {
-                    await db.products.update(pToUpdate, {
-                      where: { id: record.params.id },
-                    });
+                    await db.products.update(pToUpdate, { where: { id: record.params.id } });
                   }
-                } catch (err) {
-                  console.error("Error manual saving JSON fields:", err);
-                }
-              }
 
-              // --- MANUAL SAVE MATERIALS ---
-              if (record && record.params.id && shouldUpdateMaterials) {
-                try {
-                  const product = await db.products.findByPk(record.params.id);
-                  if (product) {
-                    await product.setMaterials(ids);
-                  }
-                } catch (err) {
-                  console.error("❌ Error manual saving materials:", err);
-                }
-              }
-
-              // --- MANUAL SAVE GLOBAL MATERIALS ---
-              try {
-                let globalMaterialIds = [];
-                let shouldUpdateGlobalMaterials = false;
-                const payload = request.payload || {};
-
-                // Check payload (improved check)
-                if (payload.globalMaterials !== undefined) {
-                  shouldUpdateGlobalMaterials = true;
-                  if (Array.isArray(payload.globalMaterials)) {
-                    globalMaterialIds = payload.globalMaterials;
-                  } else if (
-                    typeof payload.globalMaterials === "object" &&
-                    payload.globalMaterials !== null
-                  ) {
-                    globalMaterialIds = Object.values(payload.globalMaterials);
-                  }
-                } else {
-                  const hasGMKeys = Object.keys(payload).some((key) =>
-                    key.startsWith("globalMaterials."),
-                  );
-                  if (hasGMKeys) {
-                    shouldUpdateGlobalMaterials = true;
+                  // --- MANUAL SAVE GLOBAL MATERIALS ---
+                  let globalMaterialIds = [];
+                  if (payload.globalMaterials !== undefined) {
+                    if (Array.isArray(payload.globalMaterials)) {
+                      globalMaterialIds = payload.globalMaterials;
+                    } else if (typeof payload.globalMaterials === "object" && payload.globalMaterials !== null) {
+                      globalMaterialIds = Object.values(payload.globalMaterials);
+                    }
+                  } else {
                     Object.keys(payload).forEach((key) => {
-                      if (key.startsWith("globalMaterials.")) {
-                        globalMaterialIds.push(payload[key]);
-                      }
+                      if (key.startsWith("globalMaterials.")) { globalMaterialIds.push(payload[key]); }
                     });
                   }
-                }
-
-                if (shouldUpdateGlobalMaterials && record && record.params.id) {
-                  const gmIds = globalMaterialIds
-                    .map((id) => parseInt(id, 10))
-                    .filter((id) => !isNaN(id));
-                  if (product) {
-                    await product.setGlobalMaterials(gmIds);
+                  const gmIds = globalMaterialIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+                  const productInstanceEdit = await db.products.findByPk(record.params.id);
+                  if (productInstanceEdit) {
+                    await productInstanceEdit.setGlobalMaterials(gmIds);
                   }
+                } catch (err) {
+                  console.error("Error manual saving JSON fields/materials in edit:", err);
                 }
-              } catch (err) {
-                console.error("❌ Error manual saving global materials:", err);
               }
-
               return response;
             },
           },
@@ -1085,58 +757,23 @@ const admin = new AdminJS({
 
               if (record && record.params.id) {
                 try {
-                  const product = await db.products.findByPk(record.params.id, {
+                  // --- MANUAL POPULATE GLOBAL MATERIALS ---
+                  const productGM = await db.products.findByPk(record.params.id, {
                     include: [
                       {
-                        model: db.materials,
-                        as: "materials",
+                        model: db.globalMaterials,
+                        as: "globalMaterials",
                         through: { attributes: [] },
                       },
                     ],
                   });
-
-                  if (product) {
-                  }
-
-                  if (
-                    product &&
-                    product.materials &&
-                    product.materials.length > 0
-                  ) {
-                    const materials = product.materials.map((m) => m.toJSON());
-                    record.populated = record.populated || {};
-                    record.populated.materials = materials;
-
-                    // Also backfill params just in case for flattening fallback
-                    materials.forEach((m, i) => {
-                      record.params[`materials.${i}.id`] = m.id;
-                      record.params[`materials.${i}.name`] = m.name;
-                    });
-                  } else {
-                  }
-
-                  // --- MANUAL POPULATE GLOBAL MATERIALS ---
-                  const productGM = await db.products.findByPk(
-                    record.params.id,
-                    {
-                      include: [
-                        {
-                          model: db.globalMaterials,
-                          as: "globalMaterials",
-                          through: { attributes: [] },
-                        },
-                      ],
-                    },
-                  );
 
                   if (
                     productGM &&
                     productGM.globalMaterials &&
                     productGM.globalMaterials.length > 0
                   ) {
-                    const gms = productGM.globalMaterials.map((m) =>
-                      m.toJSON(),
-                    );
+                    const gms = productGM.globalMaterials.map((m) => m.toJSON());
                     record.populated = record.populated || {};
                     record.populated.globalMaterials = gms;
 
@@ -1155,7 +792,6 @@ const admin = new AdminJS({
         },
       },
     },
-
     {
       resource: db.collections,
       options: {
@@ -1471,90 +1107,6 @@ const admin = new AdminJS({
       },
     },
     {
-      resource: db.styles,
-      options: {
-        navigation: false,
-        listProperties: ["name", "megaCategoryId", "active", "image"],
-        filterProperties: ["name", "megaCategoryId", "active"],
-        properties: {
-          megaCategoryId: {
-            reference: "mega_categories",
-          },
-          image: {
-            components: {
-              edit: components.UploadSingleImage,
-              show: components.ViewSingleImage,
-              list: components.ViewSingleImage,
-            },
-          },
-        },
-      },
-    },
-    {
-      resource: db.materials,
-      options: {
-        id: "materials",
-        navigation: {
-          name: "Catalog",
-          icon: "List", // Distinct from 'Layers' used by Global Materials
-        },
-        listProperties: ["name", "megaCategoryId", "active", "image"],
-        filterProperties: ["name", "megaCategoryId", "active"],
-        properties: {
-          megaCategoryId: {
-            reference: "mega_categories",
-          },
-          image: {
-            components: {
-              edit: components.UploadSingleImage,
-              show: components.ViewSingleImage,
-              list: components.ViewSingleImage,
-            },
-          },
-        },
-      },
-    },
-    {
-      resource: db.shopFor,
-      options: {
-        id: "shopfor",
-        navigation: false,
-        listProperties: ["startPrice", "endPrice", "megaCategoryId", "active"],
-        filterProperties: [
-          "startPrice",
-          "endPrice",
-          "megaCategoryId",
-          "active",
-        ],
-        properties: {
-          megaCategoryId: {
-            reference: "mega_categories",
-          },
-        },
-      },
-    },
-    {
-      resource: db.occasions,
-      options: {
-        id: "occasions",
-        navigation: false,
-        listProperties: ["name", "megaCategoryId", "active", "image"],
-        filterProperties: ["name", "megaCategoryId", "active"],
-        properties: {
-          megaCategoryId: {
-            reference: "mega_categories",
-          },
-          image: {
-            components: {
-              edit: components.UploadSingleImage,
-              show: components.ViewSingleImage,
-              list: components.ViewSingleImage,
-            },
-          },
-        },
-      },
-    },
-    {
       resource: db.banners,
       options: {
         navigation: {
@@ -1605,6 +1157,13 @@ const admin = new AdminJS({
           "sparkleSeekerConfig.title",
           "sparkleSeekerConfig.description",
           "sparkleSeekerConfig.buttonText",
+          "storeSectionBg",
+        ],
+        newProperties: [
+          "sparkleSeekerConfig.title",
+          "sparkleSeekerConfig.description",
+          "sparkleSeekerConfig.buttonText",
+          "storeSectionBg",
         ],
         properties: {
           "sparkleSeekerConfig.title": {
@@ -1616,6 +1175,14 @@ const admin = new AdminJS({
           },
           "sparkleSeekerConfig.buttonText": {
             label: "Sparkle Seeker Config Button Text",
+          },
+          storeSectionBg: {
+            label: "Store Section Background (Discover the magic)",
+            components: {
+              new: components.UploadSingleImage,
+              edit: components.UploadSingleImage,
+              show: components.ViewSingleImage,
+            },
           },
         },
         actions: {

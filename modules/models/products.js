@@ -132,7 +132,7 @@ export default (sequelize) => {
         type: DataTypes.JSON,
         allowNull: true,
         defaultValue: [],
-        comment: "Array of diamond options: [{id, name, badge}]"
+        comment: "Array of diamond options: [{id, name, badge, diamondRate, diamondWeight}]"
       },
       priceBreakup: {
         type: DataTypes.JSON,

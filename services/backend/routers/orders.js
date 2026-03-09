@@ -11,8 +11,17 @@ router.get("/", authenticateToken, async (req, res) => {
 
 // POST /api/orders - Place an order
 router.post("/", authenticateToken, async (req, res) => {
-  const order = await db.orders.create({ ...req.body, userId: req.user.id });
-  res.status(201).json(order);
+  try {
+    const order = await db.orders.create({ ...req.body, userId: req.user.id });
+
+    // Clear the user's cart in the database after successful order
+    await db.cartItems.destroy({ where: { userId: req.user.id } });
+
+    res.status(201).json(order);
+  } catch (error) {
+    console.error("Error creating order:", error);
+    res.status(500).json({ status: false, message: "Order creation failed" });
+  }
 });
 
 // GET /api/orders/:id - Get order details

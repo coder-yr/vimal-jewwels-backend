@@ -23,6 +23,10 @@ import productsRouter from "./routers/products.js";
 import settingsRouter from "./routers/settings.js";
 import usersRouter from "./routers/users.js";
 import wishlistRouter from "./routers/wishlist.js";
+import reviewsRouter from "./routers/reviews.js";
+import addressesRouter from "./routers/addresses.js";
+import returnsRouter from "./routers/returns.js";
+import couponsRouter from "./routers/coupons.js";
 import uploadRoutes from "./upload_file.js";
 
 // ... (existing imports)
@@ -108,6 +112,10 @@ app.use("/api/appointments", appointmentsRouter);
 app.use("/api/inquiries", inquiriesRouter);
 app.use("/api/footer-configs", footerConfigRouter);
 app.use("/api/mega-menu", megaMenuRouter);
+app.use("/api/reviews", reviewsRouter);
+app.use("/api/addresses", addressesRouter);
+app.use("/api/returns", returnsRouter);
+app.use("/api/coupons", couponsRouter);
 
 // Health Check Endpoint
 app.get("/health", async (req, res) => {

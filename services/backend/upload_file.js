@@ -100,4 +100,5 @@ router.get("/", (req, res) => {
   res.send("Welcome to the API!");
 });
 
+export { uploadImage };
 export default router;

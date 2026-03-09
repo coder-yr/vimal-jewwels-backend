@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
       sectionImagesRaw,
       gifts,
       videosRaw,
-      homeDataRaw
+      homeRows
     ] = await Promise.all([
       db.banners.findAll({ where: { active: true } }),
       db.subBanners.findAll({ where: { active: true } }),
@@ -23,8 +23,17 @@ router.get("/", async (req, res) => {
       db.sectionImages.findAll(),
       db.homeGifts.findAll(),
       db.videos.findAll({ where: { active: true } }),
-      db.home.findOne()
+      db.home.findAll({ order: [["updatedAt", "DESC"], ["id", "DESC"]] })
     ]);
+
+    // Prefer a row that actually has store section background configured.
+    // Some deployments have multiple rows in home_data, and a plain findOne()
+    // can select an older/incomplete row.
+    const homeDataRaw =
+      homeRows.find((row) => {
+        const value = row?.storeSectionBg;
+        return typeof value === "string" ? value.trim().length > 0 : Boolean(value);
+      }) || homeRows[0] || null;
 
     const banners = bannersRaw.map(b => ({ ...b.toJSON(), image: transformImageUrl(b.image) }));
     const subBanners = subBannersRaw.map(b => ({ ...b.toJSON(), image: transformImageUrl(b.image) }));

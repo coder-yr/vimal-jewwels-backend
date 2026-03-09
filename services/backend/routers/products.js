@@ -1,23 +1,40 @@
 import express from "express";
 const router = express.Router();
 import db from "../db.js";
+import { Op } from "sequelize";
 
-// GET /api/products - List all products
+// GET /api/products - List all products (supports ?search=, ?sort=, ?categoryId=, ?limit=)
+
 router.get("/", async (req, res) => {
   try {
-    const products = await db.products.findAll({
+    const { search, sort, categoryId, limit } = req.query;
+
+    // Build WHERE clause
+    const where = {};
+    if (search && search.trim()) {
+      where.name = { [Op.like]: `%${search.trim()}%` };
+    }
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    // Build ORDER clause
+    let order = [["id", "DESC"]]; // default: newest first
+    if (sort === "price_asc") order = [["price", "ASC"]];
+    else if (sort === "price_desc") order = [["price", "DESC"]];
+    else if (sort === "newest") order = [["createdAt", "DESC"]];
+    else if (sort === "name_asc") order = [["name", "ASC"]];
+
+    const queryOptions = {
+      where,
+      order,
       include: [
-        {
-          model: db.materials,
-          as: "materials",
-          through: { attributes: [] } // Exclude junction table data
-        },
-        {
-          model: db.metalRates,
-          as: "metalRate",
-        }
+        { model: db.metalRates, as: "metalRate" }
       ]
-    });
+    };
+    if (limit) queryOptions.limit = parseInt(limit, 10);
+
+    const products = await db.products.findAll(queryOptions);
 
     // Transform images to {src, alt} format
     const transformedProducts = products.map(product => {
@@ -62,17 +79,13 @@ router.get("/", async (req, res) => {
   }
 });
 
+
 // GET /api/products/slug/:slug - Get product details by slug
 router.get("/slug/:slug", async (req, res) => {
   try {
     const product = await db.products.findOne({
       where: { slug: req.params.slug },
       include: [
-        {
-          model: db.materials,
-          as: "materials",
-          through: { attributes: [] }
-        },
         {
           model: db.metalRates,
           as: "metalRate",
