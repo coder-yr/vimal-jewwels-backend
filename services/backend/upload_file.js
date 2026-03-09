@@ -14,17 +14,14 @@ import fs from "fs";
 const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = join(__dirname, "images");
-    console.log(`[UPLOAD] Saving image to: ${uploadPath}`);
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
-      console.log(`[UPLOAD] Created directory: ${uploadPath}`);
     }
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const currentTimeMs = Date.now();
     const filename = `${currentTimeMs}${path.extname(file.originalname)}`;
-    console.log(`[UPLOAD] Saving as filename: ${filename}`);
     cb(null, filename);
   },
 });
@@ -54,7 +51,6 @@ router.post("/upload/image", (req, res, next) => {
     }
     // Get the filename
     const uploadedFileName = req.file.filename;
-    console.log(`[UPLOAD] ✅ Successfully uploaded: ${req.file.path}`);
     res
       .status(200)
       .json({ message: "Image Uploaded", filename: uploadedFileName });

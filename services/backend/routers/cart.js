@@ -6,7 +6,6 @@ const router = express.Router();
 
 // GET /api/cart - Return current user's cart items
 router.get("/", authenticateToken, async (req, res) => {
-  console.log(`[CART] Fetching cart for user: ${req.user.id}`);
   try {
     const userId = req.user.id;
     const cartItems = await db.cartItems.findAll({
@@ -72,7 +71,6 @@ router.post("/", authenticateToken, async (req, res) => {
 
 // POST /api/cart/merge - Merge local storage cart on login
 router.post("/merge", authenticateToken, async (req, res) => {
-  console.log(`[CART] Merging cart for user: ${req.user.id}`, req.body.localItems);
   try {
     const userId = req.user.id;
     const { localItems } = req.body; // Array of cart item objects
