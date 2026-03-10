@@ -19,6 +19,10 @@ const components = {
     "ViewSingleImage",
     path.join(__dirname, "components/common/view_single_image.jsx"),
   ),
+  ViewMultipleImages: loader.add(
+    "ViewMultipleImages",
+    path.join(__dirname, "components/common/view_multiple_images.jsx"),
+  ),
   CreateStringList: loader.add(
     "CreateStringList",
     path.join(__dirname, "components/common/string_list.jsx"),

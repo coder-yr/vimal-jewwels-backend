@@ -222,6 +222,7 @@ const admin = new AdminJS({
           "id",
           "orderId",
           "userId",
+          "images",
           "reason",
           "status",
           "createdAt",
@@ -233,11 +234,18 @@ const admin = new AdminJS({
           "userId",
           "reason",
           "comments",
+          "images",
           "status",
           "createdAt",
         ],
         editProperties: ["status", "comments"],
         properties: {
+          images: {
+            components: {
+              list: components.ViewMultipleImages,
+              show: components.ViewMultipleImages,
+            },
+          },
           comments: { type: "textarea", label: "Comments" },
           status: {
             availableValues: [
@@ -1394,6 +1402,6 @@ const PORT = process.env.PORT || 7503;
 
 app.listen(PORT, () => {
   console.log(
-    `🚀 Vimal Jewellers Admin Panel running at http://localhost:${PORT} `,
+    "🚀 Vimal Jewellers Admin Panel running at https://admin.vimaljewellers.com",
   );
 });

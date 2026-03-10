@@ -2,6 +2,14 @@ import express from "express";
 const router = express.Router();
 import db from "../db.js";
 import { Op } from "sequelize";
+import { transformImageUrl } from "../utils/imageHelper.js";
+
+const toNum = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  return cleaned ? Number(cleaned[0]) : 0;
+};
 
 // GET /api/products - List all products (supports ?search=, ?sort=, ?categoryId=, ?limit=)
 
@@ -55,10 +63,10 @@ router.get("/", async (req, res) => {
           if (Array.isArray(parsedImages)) {
             productData.images = parsedImages.map(img => {
               if (typeof img === 'string') {
-                return { src: img, alt: productData.name || "Product Image" };
+                return { src: transformImageUrl(img), alt: productData.name || "Product Image" };
               }
               return {
-                src: img.src || "/placeholder.jpg",
+                src: transformImageUrl(img.src || "/placeholder.jpg"),
                 alt: img.alt || productData.name || "Product Image"
               };
             });
@@ -124,16 +132,16 @@ router.get("/slug/:slug", async (req, res) => {
         if (Array.isArray(parsedImages)) {
           productData.images = parsedImages.map(img => {
             if (typeof img === 'string') {
-              return { src: img, alt: productData.name || "Product Image" };
+              return { src: transformImageUrl(img), alt: productData.name || "Product Image" };
             }
             return {
-              src: img.src || "/placeholder.jpg",
+              src: transformImageUrl(img.src || "/placeholder.jpg"),
               alt: img.alt || productData.name || "Product Image"
             };
           });
         } else if (parsedImages && typeof parsedImages === 'object') {
           productData.images = [{
-            src: parsedImages.src || "/placeholder.jpg",
+            src: transformImageUrl(parsedImages.src || "/placeholder.jpg"),
             alt: parsedImages.alt || productData.name || "Product Image"
           }];
         } else {
@@ -195,10 +203,36 @@ router.get("/slug/:slug", async (req, res) => {
       if (productData.availableMetals && Array.isArray(productData.availableMetals) && productData.metalRates) {
         productData.availableMetals = productData.availableMetals.map(metal => {
           const matchingRate = productData.metalRates.find(r => String(r.id) === String(metal.metalRateId));
+
+          // Fallback name matching when metalRateId is missing.
+          let fallbackRate = 0;
+          if (!matchingRate) {
+            const needle = `${metal?.name || ""} ${metal?.id || ""}`.toLowerCase().trim();
+            if (needle) {
+              const byName = productData.metalRates.find((r) => {
+                const rn = String(r?.name || "").toLowerCase().trim();
+                return rn && (needle.includes(rn) || rn.includes(needle));
+              });
+              fallbackRate = toNum(byName?.rate);
+            }
+          }
+
           return {
             ...metal,
-            rate: matchingRate ? matchingRate.rate : 0
+            rate: matchingRate ? matchingRate.rate : fallbackRate
           };
+        });
+
+        // Keep only metals with trustworthy pricing inputs.
+        productData.availableMetals = productData.availableMetals.filter((metal) => {
+          return toNum(metal?.rate) > 0 && toNum(metal?.metalWeight) > 0;
+        });
+      }
+
+      // Keep only diamonds with trustworthy pricing inputs.
+      if (Array.isArray(productData.availableDiamonds)) {
+        productData.availableDiamonds = productData.availableDiamonds.filter((diamond) => {
+          return toNum(diamond?.diamondRate) > 0 && toNum(diamond?.diamondWeight) > 0;
         });
       }
 

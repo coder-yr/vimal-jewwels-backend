@@ -1,8 +1,28 @@
 import express from "express";
-import { Op } from "sequelize";
+import jwt from "jsonwebtoken";
 import db from "../db.js";
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+
+const toNum = (value) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const parsed = Number(String(value).replace(/,/g, "").trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getAuthenticatedUserId = (req) => {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+    if (!token) return null;
+    try {
+        const user = jwt.verify(token, JWT_SECRET);
+        return user?.id || null;
+    } catch {
+        return null;
+    }
+};
 
 // POST /api/coupons/verify - Validate and calculate a coupon discount
 router.post("/verify", async (req, res) => {
@@ -13,7 +33,31 @@ router.post("/verify", async (req, res) => {
             return res.status(400).json({ status: false, message: "Coupon code is required" });
         }
 
-        if (cartTotal === undefined || cartTotal === null) {
+        let effectiveCartTotal = 0;
+        const userId = getAuthenticatedUserId(req);
+
+        if (userId) {
+            const cartItems = await db.cartItems.findAll({
+                where: { userId },
+                include: [
+                    {
+                        model: db.products,
+                        as: "product",
+                        attributes: ["price", "mrp"],
+                    },
+                ],
+            });
+
+            effectiveCartTotal = cartItems.reduce((sum, item) => {
+                const qty = Math.max(parseInt(item.quantity, 10) || 1, 1);
+                const unitPrice = Math.max(toNum(item?.product?.price || item?.product?.mrp), 0);
+                return sum + unitPrice * qty;
+            }, 0);
+        } else {
+            effectiveCartTotal = Math.max(toNum(cartTotal), 0);
+        }
+
+        if (effectiveCartTotal <= 0) {
             return res.status(400).json({ status: false, message: "Cart total is required to verify coupon" });
         }
 
@@ -38,7 +82,7 @@ router.post("/verify", async (req, res) => {
         }
 
         // Check minimum order value
-        if (coupon.minOrderValue > 0 && cartTotal < coupon.minOrderValue) {
+        if (coupon.minOrderValue > 0 && effectiveCartTotal < coupon.minOrderValue) {
             return res.status(400).json({
                 status: false,
                 message: `Cart total must be at least ₹${coupon.minOrderValue.toLocaleString('en-IN')} to use this coupon`
@@ -51,12 +95,16 @@ router.post("/verify", async (req, res) => {
             discountAmount = coupon.discountValue;
         } else if (coupon.discountType === "PERCENTAGE") {
             // Calculate percentage, capping it at the total cart value if it somehow exceeds 100%
-            discountAmount = (cartTotal * coupon.discountValue) / 100;
+            discountAmount = (effectiveCartTotal * coupon.discountValue) / 100;
 
             // Safety check: Discount cannot make total negative
-            if (discountAmount > cartTotal) {
-                discountAmount = cartTotal;
+            if (discountAmount > effectiveCartTotal) {
+                discountAmount = effectiveCartTotal;
             }
+        }
+
+        if (coupon.discountType === "FLAT" && discountAmount > effectiveCartTotal) {
+            discountAmount = effectiveCartTotal;
         }
 
         // Successful validation!
@@ -66,7 +114,8 @@ router.post("/verify", async (req, res) => {
             coupon: {
                 code: coupon.code,
                 discountAmount: Math.round(discountAmount), // ensure clean number for frontend
-                discountType: coupon.discountType
+                discountType: coupon.discountType,
+                cartTotal: Math.round(effectiveCartTotal)
             }
         });
 

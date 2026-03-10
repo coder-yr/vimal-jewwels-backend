@@ -3,6 +3,13 @@ const router = express.Router();
 import db from "../db.js";
 import { authenticateToken } from "../middleware/auth.js";
 
+const toNum = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 // GET /api/orders - Get all orders for the current user
 router.get("/", authenticateToken, async (req, res) => {
   const orders = await db.orders.findAll({ where: { userId: req.user.id } });
@@ -12,12 +19,82 @@ router.get("/", authenticateToken, async (req, res) => {
 // POST /api/orders - Place an order
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    const order = await db.orders.create({ ...req.body, userId: req.user.id });
+    const userId = req.user.id;
+    const paymentMethod = typeof req.body?.paymentMethod === "string" ? req.body.paymentMethod.trim() : null;
+    const address = req.body?.address ?? null;
 
-    // Clear the user's cart in the database after successful order
-    await db.cartItems.destroy({ where: { userId: req.user.id } });
+    if (!address) {
+      return res.status(400).json({ status: false, message: "Shipping address is required" });
+    }
 
-    res.status(201).json(order);
+    const cartItems = await db.cartItems.findAll({
+      where: { userId },
+      include: [
+        {
+          model: db.products,
+          as: "product",
+          attributes: ["id", "name", "images", "shortcode", "price", "mrp"],
+        },
+      ],
+    });
+
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      return res.status(400).json({ status: false, message: "Cart is empty" });
+    }
+
+    let computedTotal = 0;
+    const itemsSnapshot = [];
+
+    for (const cartItem of cartItems) {
+      if (!cartItem.product) continue;
+
+      const qty = Math.max(parseInt(cartItem.quantity, 10) || 1, 1);
+      const unitPrice = Math.max(toNum(cartItem.product.price || cartItem.product.mrp), 0);
+      const lineTotal = unitPrice * qty;
+      computedTotal += lineTotal;
+
+      itemsSnapshot.push({
+        productId: cartItem.product.id,
+        name: cartItem.product.name,
+        sku: cartItem.product.shortcode || null,
+        image: Array.isArray(cartItem.product.images) ? cartItem.product.images[0] : cartItem.product.images,
+        unitPrice,
+        quantity: qty,
+        lineTotal,
+        ringSize: cartItem.ringSize || null,
+        variantMetalId: cartItem.variantMetalId || null,
+        variantDiamondId: cartItem.variantDiamondId || null,
+      });
+    }
+
+    if (itemsSnapshot.length === 0) {
+      return res.status(400).json({ status: false, message: "No valid products in cart" });
+    }
+
+    const order = await db.sequelize.transaction(async (transaction) => {
+      const createdOrder = await db.orders.create(
+        {
+          userId,
+          items: itemsSnapshot,
+          total: Math.round(computedTotal),
+          status: "Processing",
+          address,
+          paymentMethod: paymentMethod || "Unknown",
+        },
+        { transaction },
+      );
+
+      await db.cartItems.destroy({ where: { userId }, transaction });
+      return createdOrder;
+    });
+
+    res.status(201).json({
+      id: order.id,
+      status: order.status,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      items: order.items,
+    });
   } catch (error) {
     console.error("Error creating order:", error);
     res.status(500).json({ status: false, message: "Order creation failed" });

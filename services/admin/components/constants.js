@@ -7,6 +7,7 @@ const LOCAL_BACKEND = "https://backend.vimaljewellers.com";
 
 // Use AdminJS injected env first, then explicit local default
 export const serverUrlApi = adminEnv.REACT_APP_API_URL || LOCAL_API;
+const normalizedBackendBase = (adminEnv.REACT_APP_BACKEND_URL || LOCAL_BACKEND).replace(/\/$/, "");
 export const serverUrlImage = adminEnv.REACT_APP_BACKEND_URL
-    ? `${adminEnv.REACT_APP_BACKEND_URL}/images/`
+    ? `${normalizedBackendBase}/images/`
     : `${LOCAL_BACKEND}/images/`;

@@ -2,12 +2,18 @@ import express from "express";
 const router = express.Router();
 import db from "../db.js";
 import { Op } from "sequelize";
+import { transformImageUrl } from "../utils/imageHelper.js";
 
 // GET /api/categories - List all categories
 router.get("/", async (req, res) => {
   try {
     const categories = await db.categories.findAll();
-    res.json(categories);
+    const transformed = categories.map((c) => {
+      const data = c.toJSON();
+      data.image = transformImageUrl(data.image);
+      return data;
+    });
+    res.json(transformed);
   } catch (error) {
     console.error("Error fetching categories:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -60,7 +66,7 @@ router.get("/:slug", async (req, res) => {
 
     // Find banner for this category (by url)
     let banner = await db.banners.findOne({ where: { url: `/category/${category.dataValues.slug}` } });
-    let bannerImage = banner ? banner.image : null;
+    let bannerImage = banner ? transformImageUrl(banner.image) : null;
 
     // Attach banner and subcategories to category object
     const categoryWithBanner = {
@@ -68,6 +74,12 @@ router.get("/:slug", async (req, res) => {
       banner: bannerImage,
       subcategories: childCategories || [] // childCategories is defined if it's a mega category
     };
+
+    categoryWithBanner.subcategories = (categoryWithBanner.subcategories || []).map((sub) => {
+      const subData = sub.toJSON ? sub.toJSON() : sub;
+      subData.image = transformImageUrl(subData.image);
+      return subData;
+    });
 
     // Build filter conditions
     const where = { categoryId: { [Op.in]: categoryIds } };
@@ -137,10 +149,10 @@ router.get("/:slug", async (req, res) => {
       if (Array.isArray(images)) {
         images = images.map(img => {
           if (typeof img === 'string') {
-            return { src: img, alt: product.name || "Product Image" };
+            return { src: transformImageUrl(img), alt: product.name || "Product Image" };
           }
           return {
-            src: img.src || img || "/placeholder.jpg",
+            src: transformImageUrl(img.src || img || "/placeholder.jpg"),
             alt: img.alt || product.name || "Product Image"
           };
         });
