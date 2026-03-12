@@ -6,6 +6,7 @@ const VariantList = (props) => {
     const { record, property } = props;
     const [entries, setEntries] = useState([]);
     const [metalRates, setMetalRates] = useState([]);
+    const [validationMessage, setValidationMessage] = useState("");
 
     const isMetal = Boolean((property.name && property.name.toLowerCase().includes('metal')) || (property.path && property.path.toLowerCase().includes('metal')));
     const isDiamond = Boolean((property.name && property.name.toLowerCase().includes('diamond')) || (property.path && property.path.toLowerCase().includes('diamond')));
@@ -38,19 +39,33 @@ const VariantList = (props) => {
     }, [isMetal]);
 
     const addItem = () => {
+        const nextId = idRef.current.value.trim();
+        const nextName = nameRef.current.value.trim();
+        const nextBadge = badgeRef.current.value.trim();
+        const nextMetalRateId = metalRateIdRef.current ? metalRateIdRef.current.value : '';
+        const nextMetalWeight = metalWeightRef.current ? metalWeightRef.current.value.trim() : '';
+        const nextDiamondRate = diamondRateRef.current ? diamondRateRef.current.value.trim() : '';
+        const nextDiamondWeight = diamondWeightRef.current ? diamondWeightRef.current.value.trim() : '';
+
         if (!idRef.current.value.trim() && !nameRef.current.value.trim()) return;
+
+        if (isMetal && (!nextMetalRateId || Number.parseFloat(nextMetalWeight) <= 0)) {
+            setValidationMessage("Each metal option needs a metal rate and metal weight greater than 0.");
+            return;
+        }
+
+        setValidationMessage("");
 
         const updated = [
             ...entries,
             {
-                id: idRef.current.value.trim(),
-                name: nameRef.current.value.trim(),
-                badge: badgeRef.current.value.trim(),
-                metalRateId: metalRateIdRef.current ? metalRateIdRef.current.value : '',
-                metalWeight: metalWeightRef.current ? metalWeightRef.current.value.trim() : '',
-                // Diamond fields
-                diamondRate: diamondRateRef.current ? diamondRateRef.current.value.trim() : '',
-                diamondWeight: diamondWeightRef.current ? diamondWeightRef.current.value.trim() : '',
+                id: nextId,
+                name: nextName,
+                badge: nextBadge,
+                metalRateId: nextMetalRateId,
+                metalWeight: nextMetalWeight,
+                diamondRate: nextDiamondRate,
+                diamondWeight: nextDiamondWeight,
             },
         ];
         idRef.current.value = "";
@@ -131,6 +146,16 @@ const VariantList = (props) => {
     return (
         <Box>
             <Label>{property.label}</Label>
+            {isMetal && (
+                <Box mb="default" color="grey60">
+                    Add only priced metal rows here. The storefront will default to the product's configured metal rate when a matching variant exists.
+                </Box>
+            )}
+            {validationMessage && (
+                <Box mb="default" color="error">
+                    {validationMessage}
+                </Box>
+            )}
             <Box flex flexDirection="row" gap="default" alignItems="flex-end" mb="lg">
                 <Box flex={1}>
                     <Label variant="light" size="sm">ID (e.g. 18k-rose)</Label>

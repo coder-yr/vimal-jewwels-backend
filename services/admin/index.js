@@ -21,6 +21,127 @@ const authenticate = async (email, password) => {
   }
   return null;
 };
+
+const parseNumericInput = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const match = String(value).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+};
+
+const trimIfString = (value) => (typeof value === "string" ? value.trim() : value);
+
+const extractArrayFromPayload = (payload, prefix, fields) => {
+  if (!payload) return [];
+
+  const directValue = payload[prefix];
+  if (directValue) {
+    let parsed = directValue;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (error) {
+        parsed = directValue;
+      }
+    }
+
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => {
+        const normalizedItem = {};
+        fields.forEach((field) => {
+          if (item?.[field] !== undefined) {
+            normalizedItem[field] = trimIfString(item[field]);
+          }
+        });
+        return normalizedItem;
+      });
+    }
+  }
+
+  const items = [];
+  let maxIndex = -1;
+  Object.keys(payload).forEach((key) => {
+    if (key.startsWith(`${prefix}.`)) {
+      const parts = key.split(".");
+      const index = parseInt(parts[1], 10);
+      if (!Number.isNaN(index) && index > maxIndex) maxIndex = index;
+    }
+  });
+
+  for (let index = 0; index <= maxIndex; index++) {
+    const item = {};
+    let hasData = false;
+    fields.forEach((field) => {
+      const value = payload[`${prefix}.${index}.${field}`];
+      if (value !== undefined) {
+        item[field] = trimIfString(value);
+        hasData = true;
+      }
+    });
+    if (hasData) items.push(item);
+  }
+
+  return items;
+};
+
+const prepareProductPayload = async (payload) => {
+  if (!payload) return;
+
+  if (payload.slug) payload.slug = payload.slug.trim();
+  if (payload.name) payload.name = payload.name.trim();
+
+  const metalItems = extractArrayFromPayload(payload, "availableMetals", [
+    "id",
+    "name",
+    "badge",
+    "metalRateId",
+    "metalWeight",
+  ]).filter((item) => Object.values(item).some((value) => String(value || "").trim() !== ""));
+
+  const invalidMetalIndex = metalItems.findIndex((item) => {
+    return !item.metalRateId || parseNumericInput(item.metalWeight) <= 0;
+  });
+
+  if (invalidMetalIndex !== -1) {
+    throw new Error(
+      `Available metal row ${invalidMetalIndex + 1} must include a metal rate and metal weight greater than 0.`,
+    );
+  }
+
+  const numericPrice = parseNumericInput(payload.price);
+  const shouldAutoCalculatePrice = numericPrice <= 0 && payload.metalRateId;
+
+  if (!shouldAutoCalculatePrice) {
+    return;
+  }
+
+  const metalRate = await db.metalRates.findByPk(payload.metalRateId);
+  if (!metalRate) {
+    return;
+  }
+
+  const rate = parseNumericInput(metalRate.rate);
+  const weight = parseNumericInput(payload.metalWeight) || parseNumericInput(payload.grossWeight);
+  const makingPercentage = parseNumericInput(payload.makingCharges);
+  const taxPercentage = parseNumericInput(payload.taxRate);
+
+  if (rate <= 0 || weight <= 0) {
+    return;
+  }
+
+  const basePrice = rate * weight;
+  const makingCharges = (basePrice * makingPercentage) / 100;
+  const subtotal = basePrice + makingCharges;
+  const taxAmount = (subtotal * taxPercentage) / 100;
+  const totalPrice = Math.round(subtotal + taxAmount);
+
+  payload.price = String(totalPrice);
+
+  const numericMrp = parseNumericInput(payload.mrp);
+  if (numericMrp <= 0) {
+    payload.mrp = payload.price;
+  }
+};
 // EXPRESS APP
 const app = express();
 app.use(cors());
@@ -276,7 +397,6 @@ const admin = new AdminJS({
 
           // Pricing & Inventory
           "mrp",
-          "price",
           "taxRate",
           "metalRateId",
           "makingCharges",
@@ -308,7 +428,6 @@ const admin = new AdminJS({
           "id",
           "name",
           "images",
-          "price",
           "active",
           "categoryId",
           "collectionId",
@@ -317,7 +436,7 @@ const admin = new AdminJS({
         ],
         listProperties: [
           "name",
-          "price",
+          "mrp",
           "trendingOrder",
           "slug",
           "categoryId",
@@ -325,6 +444,20 @@ const admin = new AdminJS({
           "active",
         ],
         properties: {
+          price: {
+            type: "number",
+            isVisible: false,
+          },
+          mrp: {
+            type: "number",
+            label: "MRP / Suggested Retail Price",
+            description: "Displayed on PDP as strikethrough for discount visualization. Auto-filled during price calculation if left empty.",
+          },
+          taxRate: {
+            type: "number",
+            label: "Tax Rate (%)",
+            description: "GST or tax percentage applied after metal cost + making charges. Default is 3% for most jewelry.",
+          },
           categoryId: {
             reference: "categories",
           },
@@ -348,11 +481,13 @@ const admin = new AdminJS({
             label: "Metal Rate (For Calculation)",
             type: "reference",
             reference: "metal_rates",
+            description: "The default metal purity for this product. The storefront will select the matching variant with this rate when the page loads. Match this to the first valid availableMetals entry. Price auto-calculates as: (Weight × Rate) + Making Charges + GST.",
           },
           makingCharges: {
             type: "number",
             label: "Making Charges (%)",
             isRequired: true,
+            description: "Percentage applied to metal cost before GST. Example: 10% means (Metal Cost × 10%) is added as making charges.",
           },
           diamondDetails: {
             components: {
@@ -376,6 +511,7 @@ const admin = new AdminJS({
           },
           globalMaterials: {
             label: "Materials",
+            description: "Used for product taxonomy/filtering and as a fallback source for material options. Dynamic PDP pricing still requires Available Metal Options with Metal Rate ID and Metal Weight.",
             isVisible: { list: true, filter: true, show: true, edit: true },
             type: "reference",
             reference: "global_materials",
@@ -389,6 +525,8 @@ const admin = new AdminJS({
           availableMetals: {
             type: "mixed",
             isArray: true,
+            label: "Available Metal Options",
+            description: "Add only fully-priced metal options here. Each row must have Metal Rate ID and Weight > 0. The first matching variant will become the default on the storefront.",
             components: {
               edit: components.VariantList,
             },
@@ -430,58 +568,7 @@ const admin = new AdminJS({
           new: {
             before: async (request) => {
               const { payload } = request;
-              // TRIM SLUG AND NAME
-              if (payload.slug) payload.slug = payload.slug.trim();
-              if (payload.name) payload.name = payload.name.trim();
-
-              // Auto-calculate Price if missing/zero and Metal Rate provided
-              const numericPrice = parseFloat(payload.price);
-              const isPriceMissingOrZero = isNaN(numericPrice) || numericPrice === 0;
-
-              if (isPriceMissingOrZero && payload.metalRateId) {
-                try {
-                  const metalRate = await db.metalRates.findByPk(
-                    payload.metalRateId,
-                  );
-                  if (metalRate) {
-                    const rate = parseFloat(metalRate.rate);
-                    // Extract weight (handle "10 gms" string format or numbers)
-                    let weight = parseFloat(
-                      payload.grossWeight || payload.metalWeight || 0,
-                    );
-                    if (isNaN(weight)) {
-                      // Try referencing the numeric part if it's a string
-                      const wStr = (
-                        payload.grossWeight ||
-                        payload.metalWeight ||
-                        ""
-                      ).toString();
-                      const match = wStr.match(/[\d\.]+/);
-                      if (match) weight = parseFloat(match[0]);
-                    }
-
-                    const makingPercentage = parseFloat(
-                      payload.makingCharges || 0,
-                    );
-
-                    if (rate > 0 && weight > 0) {
-                      const basePrice = rate * weight;
-                      const totalPrice =
-                        basePrice + (basePrice * makingPercentage) / 100;
-
-                      payload.price = String(Math.round(totalPrice));
-
-                      const numericMrp = parseFloat(payload.mrp);
-                      if (isNaN(numericMrp) || numericMrp === 0) {
-                        payload.mrp = payload.price;
-                      }
-
-                    }
-                  }
-                } catch (error) {
-                  console.error("Error auto-calculating price:", error);
-                }
-              }
+              await prepareProductPayload(payload);
 
               return request;
             },
@@ -576,56 +663,8 @@ const admin = new AdminJS({
           edit: {
             before: async (request) => {
               if (request.method.toLowerCase() === "post") {
-                // Only on save, not on get
                 const { payload } = request;
-                // TRIM SLUG AND NAME
-                if (payload.slug) payload.slug = payload.slug.trim();
-                if (payload.name) payload.name = payload.name.trim();
-
-                // Auto-calculate Price if missing/zero and Metal Rate provided
-                const numericPrice = parseFloat(payload.price);
-                const isPriceMissingOrZero = isNaN(numericPrice) || numericPrice === 0;
-
-                if (isPriceMissingOrZero && payload.metalRateId) {
-                  try {
-                    const metalRate = await db.metalRates.findByPk(
-                      payload.metalRateId,
-                    );
-                    if (metalRate) {
-                      const rate = parseFloat(metalRate.rate);
-                      let weight = parseFloat(
-                        payload.grossWeight || payload.metalWeight || 0,
-                      );
-                      if (isNaN(weight)) {
-                        const wStr = (
-                          payload.grossWeight ||
-                          payload.metalWeight ||
-                          ""
-                        ).toString();
-                        const match = wStr.match(/[\d\.]+/);
-                        if (match) weight = parseFloat(match[0]);
-                      }
-                      const makingPercentage = parseFloat(
-                        payload.makingCharges || 0,
-                      );
-
-                      if (rate > 0 && weight > 0) {
-                        const basePrice = rate * weight;
-                        const totalPrice =
-                          basePrice + (basePrice * makingPercentage) / 100;
-                        payload.price = String(Math.round(totalPrice));
-
-                        const numericMrp = parseFloat(payload.mrp);
-                        if (isNaN(numericMrp) || numericMrp === 0) {
-                          payload.mrp = payload.price;
-                        }
-                      }
-                    }
-                  } catch (error) {
-                    console.error("Error auto-calculating price:", error);
-                  }
-                }
-
+                await prepareProductPayload(payload);
               }
               return request;
             },
