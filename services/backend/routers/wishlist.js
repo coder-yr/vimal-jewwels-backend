@@ -3,6 +3,7 @@ const router = express.Router();
 import db from "../db.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { transformImageUrl } from "../utils/imageHelper.js";
+import { calculateDynamicPrice } from "../utils/priceCalculator.js";
 
 // Add product to wishlist
 router.post("/", authenticateToken, async (req, res) => {
@@ -30,9 +31,14 @@ router.get("/", authenticateToken, async (req, res) => {
   const productIds = wishlist.map(item => item.productId);
   const products = await db.products.findAll({ where: { id: productIds } });
 
+  const allMetalRates = await db.metalRates.findAll();
+
   // Transform images to {src, alt} format
-  const transformedProducts = products.map(product => {
-    const productData = product.toJSON();
+  let transformedProducts = products.map(product => {
+    let productData = product.toJSON();
+
+    const dynPrice = calculateDynamicPrice(productData, allMetalRates);
+    productData.price = dynPrice > 0 ? dynPrice : productData.price;
 
     // Handle images
     try {
