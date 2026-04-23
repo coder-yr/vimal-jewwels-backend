@@ -1441,6 +1441,6 @@ const PORT = process.env.PORT || 7503;
 
 app.listen(PORT, () => {
   console.log(
-    "🚀 Vimal Jewellers Admin Panel running at https://admin.vimaljewellers.com",
+    "🚀 Vimal Jewellers Admin Panel running at http://localhost:" + PORT
   );
 });
