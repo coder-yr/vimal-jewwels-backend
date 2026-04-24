@@ -1,6 +1,5 @@
-
-// Production URL
-const BASE_URL = "https://backend.vimaljewellers.com";
+// Use environment variable for BASE_URL, fallback to a default
+const BASE_URL = process.env.BACKEND_URL || "https://vimal-jewwels-backend-q7iv.onrender.com";
 
 export const transformImageUrl = (url) => {
     if (!url) return url;
