@@ -7,9 +7,14 @@ import dotenv from "dotenv";
 import express from "express";
 import MySQLStore from "express-mysql-session";
 import session from "express-session";
+import path from "path";
+import { fileURLToPath } from "url";
 import { components, loader } from "./component_loader.js";
 import db from "./db.js";
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DEFAULT_ADMIN = {
   email: process.env.ADMINEMAIL,
@@ -146,7 +151,7 @@ const prepareProductPayload = async (payload) => {
 const app = express();
 app.use(cors());
 
-app.use("/public", express.static("public"));
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 AdminJS.registerAdapter(AdminJSSequelize);
 
