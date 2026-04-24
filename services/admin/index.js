@@ -1439,8 +1439,9 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 7503;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    "🚀 Vimal Jewellers Admin Panel running at http://localhost:" + PORT
+    "🚀 Vimal Jewellers Admin Panel running on port " + PORT + " and bound to 0.0.0.0"
   );
 });
+

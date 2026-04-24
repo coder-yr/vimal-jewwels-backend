@@ -145,9 +145,10 @@ app.use((err, req, res, next) => {
 
 const port = process.env.PORT || 7502;
 
-app.listen(port, () => {
-  console.log(`🚀 Vimal Jewellers Backend running on port ${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`🚀 Vimal Jewellers Backend running on port ${port} and bound to 0.0.0.0`);
 });
+
 
 export default app;
 
